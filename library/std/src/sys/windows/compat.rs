@@ -65,6 +65,8 @@ unsafe extern "C" fn init() {
 
     // Attempt to preload the synch functions.
     load_synch_functions();
+    #[cfg(not(target_vendor = "uwp"))]
+    load_stack_overflow_functions();
 }
 
 /// Helper macro for creating CStrs from literals and symbol names.
@@ -360,7 +362,10 @@ macro_rules! static_load {
         [$($symbol:ident),* $(,)?]
     ) => {
         $(
-            let $symbol = $library.proc_address(ansi_str!(sym $symbol))?;
+            let $symbol = {
+                const $symbol: &CStr = ansi_str!(sym $symbol);
+                $library.proc_address($symbol)?
+            };
         )*
         $(
             c::$symbol::PTR.store($symbol.as_ptr(), Ordering::Relaxed);
@@ -377,6 +382,23 @@ pub(super) fn load_synch_functions() {
         // If any step fails, then they all fail.
         let library = unsafe { Module::new(MODULE_NAME) }?;
         static_load!(library, [WaitOnAddress, WakeByAddressSingle]);
+
+        Some(())
+    }
+
+    try_load();
+}
+
+#[cfg(not(target_vendor = "uwp"))]
+pub(super) fn load_stack_overflow_functions() {
+    fn try_load() -> Option<()> {
+        const MODULE_NAME: &CStr = c"kernel32";
+
+        // Try loading the library and all the required functions.
+        // If any step fails, then they all fail.
+        let library = unsafe { Module::new(MODULE_NAME) }?;
+
+        static_load!(library, [SetThreadStackGuarantee, AddVectoredExceptionHandler]);
 
         Some(())
     }

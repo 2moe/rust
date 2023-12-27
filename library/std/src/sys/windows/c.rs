@@ -443,13 +443,19 @@ compat_fn_with_fallback! {
 // Where possible, these definitions should be kept in sync with https://docs.rs/windows-sys
 cfg_if::cfg_if! {
 if #[cfg(not(target_vendor = "uwp"))] {
-    #[link(name = "kernel32")]
-    extern "system" {
+    compat_fn_optional! {
+        crate::sys::compat::load_stack_overflow_functions();
+        // >= Vista / Server 2003
+        // https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadstackguarantee
+        pub fn SetThreadStackGuarantee(stacksizeinbytes: *mut u32) -> BOOL;
+        // >= XP
+        // https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-addvectoredexceptionhandler
         pub fn AddVectoredExceptionHandler(
             first: u32,
             handler: PVECTORED_EXCEPTION_HANDLER,
         ) -> *mut c_void;
     }
+
     pub type PVECTORED_EXCEPTION_HANDLER = Option<
         unsafe extern "system" fn(exceptioninfo: *mut EXCEPTION_POINTERS) -> i32,
     >;
