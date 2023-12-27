@@ -1,0 +1,23 @@
+# Includes one of the default files in src/bootstrap/defaults
+# profile = "library"
+change-id = 118703
+
+[llvm]
+# Will download LLVM from CI if available on your platform.
+download-ci-llvm = true
+
+[build]
+build = "x86_64-pc-windows-msvc"
+target = [
+    "i586-rust9x-windows-msvc",
+    "i686-rust9x-windows-msvc",
+    "x86_64-rust9x-windows-msvc",
+]
+
+docs = false
+
+[rust]
+# This greatly increases the speed of rebuilds, especially when there are only minor changes. However, it makes the initial build slightly slower.
+# incremental = true
+# Make the compiler and standard library faster to build, at the expense of a ~20% runtime slowdown.
+# lto = "off"
