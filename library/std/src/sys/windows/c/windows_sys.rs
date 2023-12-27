@@ -395,6 +395,10 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn LoadLibraryA(lplibfilename: PCSTR) -> HMODULE;
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn MoveFileExW(
         lpexistingfilename: PCWSTR,
         lpnewfilename: PCWSTR,

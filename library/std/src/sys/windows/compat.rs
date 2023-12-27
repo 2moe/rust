@@ -115,6 +115,13 @@ impl Module {
         NonNull::new(module).map(Self)
     }
 
+    #[allow(dead_code)]
+    pub unsafe fn load(name: &CStr) -> Option<Self> {
+        // SAFETY: A CStr is always null terminated.
+        let module = c::LoadLibraryA(name.as_ptr().cast::<u8>());
+        NonNull::new(module).map(Self)
+    }
+
     // Try to get the address of a function.
     pub fn proc_address(self, name: &CStr) -> Option<NonNull<c_void>> {
         unsafe {
@@ -128,24 +135,28 @@ impl Module {
     }
 }
 
+pub static UNICOWS: &CStr = c"unicows";
+
 /// Load a function or use a fallback implementation if that fails.
 macro_rules! compat_fn_with_fallback {
-    (pub static $module:ident: &CStr = $name:expr; $(
-        $(#[$meta:meta])*
-        $vis:vis fn $symbol:ident($($argname:ident: $argtype:ty),*) -> $rettype:ty $fallback_body:block
-    )*) => (
-        pub static $module: &CStr = $name;
+    {
+        pub static $module:ident: &CStr = $name:expr => { load: $load:expr, unicows: $unicows:expr };
+        $(
+            $(#[$meta:meta])*
+            $vis:vis fn $symbol:ident($($argname:ident: $argtype:ty),* $(,)?) $(-> $rettype:ty)? $fallback_body:block
+        )+
+    } => {
     $(
         $(#[$meta])*
         pub mod $symbol {
             #[allow(unused_imports)]
             use super::*;
             use crate::mem;
-            use crate::ffi::CStr;
+            use crate::ffi::{CStr, c_void};
             use crate::sync::atomic::{AtomicPtr, Ordering};
-            use crate::sys::compat::Module;
+            use crate::sys::compat::{Module, UNICOWS};
 
-            type F = unsafe extern "system" fn($($argtype),*) -> $rettype;
+            type F = unsafe extern "system" fn($($argtype),*) $(-> $rettype)?;
 
             /// `PTR` contains a function pointer to one of three functions.
             /// It starts with the `load` function.
@@ -154,15 +165,30 @@ macro_rules! compat_fn_with_fallback {
             /// If it fails, then `PTR` is set to `fallback`.
             static PTR: AtomicPtr<c_void> = AtomicPtr::new(load as *mut _);
 
-            unsafe extern "system" fn load($($argname: $argtype),*) -> $rettype {
-                let func = load_from_module(Module::new($module));
+            unsafe extern "system" fn load($($argname: $argtype),*) $(-> $rettype)? {
+                let func = load_from_module();
                 func($($argname),*)
             }
 
-            fn load_from_module(module: Option<Module>) -> F {
+            fn load_from_module() -> F {
                 unsafe {
                     static SYMBOL_NAME: &CStr = ansi_str!(sym $symbol);
-                    if let Some(f) = module.and_then(|m| m.proc_address(SYMBOL_NAME)) {
+
+                    let in_unicows = if $unicows {
+                        Module::new(UNICOWS).and_then(|m| m.proc_address(SYMBOL_NAME))
+                    } else {
+                        None
+                    };
+
+                    let f = in_unicows.or_else(|| {
+                        if $load {
+                            Module::new($name)
+                        } else {
+                            Module::load($name)
+                        }.and_then(|m| m.proc_address(SYMBOL_NAME))
+                    });
+
+                    if let Some(f) = f {
                         PTR.store(f.as_ptr(), Ordering::Relaxed);
                         mem::transmute(f)
                     } else {
@@ -172,20 +198,31 @@ macro_rules! compat_fn_with_fallback {
                 }
             }
 
+            #[allow(dead_code)]
+            pub fn available() -> bool {
+                let mut ptr = PTR.load(Ordering::Relaxed);
+                if ptr == load as *mut _ {
+                    ptr = load_from_module() as *mut _;
+                }
+
+                ptr != fallback as *mut _
+            }
+
             #[allow(unused_variables)]
-            unsafe extern "system" fn fallback($($argname: $argtype),*) -> $rettype {
+            unsafe extern "system" fn fallback($($argname: $argtype),*) $(-> $rettype)? {
                 $fallback_body
             }
 
             #[inline(always)]
-            pub unsafe fn call($($argname: $argtype),*) -> $rettype {
+            pub unsafe fn call($($argname: $argtype),*) $(-> $rettype)? {
                 let func: F = mem::transmute(PTR.load(Ordering::Relaxed));
                 func($($argname),*)
             }
         }
         $(#[$meta])*
         $vis use $symbol::call as $symbol;
-    )*)
+    )*
+    }
 }
 
 /// Optionally loaded functions.
@@ -195,7 +232,7 @@ macro_rules! compat_fn_optional {
     ($load_functions:expr;
     $(
         $(#[$meta:meta])*
-        $vis:vis fn $symbol:ident($($argname:ident: $argtype:ty),*) $(-> $rettype:ty)?;
+        $vis:vis fn $symbol:ident($($argname:ident: $argtype:ty),* $(,)?) $(-> $rettype:ty)?;
     )+) => (
         $(
             pub mod $symbol {
@@ -211,32 +248,136 @@ macro_rules! compat_fn_optional {
                 type F = unsafe extern "system" fn($($argtype),*) $(-> $rettype)?;
 
                 #[inline(always)]
+                #[allow(dead_code)]
                 pub fn option() -> Option<F> {
                     // Miri does not understand the way we do preloading
                     // therefore load the function here instead.
                     #[cfg(miri)] $load_functions;
                     NonNull::new(PTR.load(Ordering::Relaxed)).map(|f| unsafe { mem::transmute(f) })
                 }
+
+                #[inline(always)]
+                #[allow(dead_code)]
+                pub unsafe fn call($($argname: $argtype),*) $(-> $rettype)? {
+                    (mem::transmute::<_, F>(PTR.load(Ordering::Relaxed)))($($argname),*)
+                }
             }
+
+            #[allow(unused_imports)]
+            $(#[$meta])*
+            $vis use $symbol::call as $symbol;
         )+
     )
+}
+
+macro_rules! compat_fn_lazy {
+    {
+        pub static $module:ident: &CStr = $name:expr => { load: $load:expr, unicows: $unicows:expr };
+        $(
+            $(#[$meta:meta])*
+            $vis:vis fn $symbol:ident($($argname:ident: $argtype:ty),* $(,)?) $(-> $rettype:ty)?;
+        )+
+    } => {
+    $(
+        $(#[$meta])*
+        pub mod $symbol {
+            #[allow(unused_imports)]
+            use super::*;
+            use crate::mem;
+            use crate::ffi::{CStr, c_void};
+            use crate::sync::atomic::{AtomicPtr, Ordering};
+            use crate::sys::compat::{Module, UNICOWS};
+
+            type F = unsafe extern "system" fn($($argtype),*) $(-> $rettype)?;
+
+            /// `PTR` contains a function pointer to one of three functions.
+            /// It starts with the `load` function.
+            /// When that is called it attempts to load the requested symbol.
+            /// If it succeeds, `PTR` is set to the address of that symbol.
+            /// If it fails, then `PTR` is set to `fallback`.
+            static PTR: AtomicPtr<c_void> = AtomicPtr::new(load as *mut _);
+
+            unsafe extern "system" fn load($($argname: $argtype),*) $(-> $rettype)? {
+                let func = load_from_module();
+                (func.unwrap())($($argname),*)
+            }
+
+            fn load_from_module() -> Option<F> {
+                unsafe {
+                    static SYMBOL_NAME: &CStr = ansi_str!(sym $symbol);
+
+                    let in_unicows = if $unicows {
+                        Module::new(UNICOWS).and_then(|m| m.proc_address(SYMBOL_NAME))
+                    } else {
+                        None
+                    };
+
+                    let f = in_unicows.or_else(|| {
+                        if $load {
+                            Module::new($name)
+                        } else {
+                            Module::load($name)
+                        }.and_then(|m| m.proc_address(SYMBOL_NAME))
+                    });
+
+                    if let Some(f) = f {
+                        PTR.store(f.as_ptr(), Ordering::Relaxed);
+                        Some(mem::transmute(f))
+                    } else {
+                        PTR.store(crate::ptr::null_mut(), Ordering::Relaxed);
+                        None
+                    }
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn option() -> Option<F> {
+                unsafe {
+                    let ptr = PTR.load(Ordering::Relaxed);
+                    if ptr == load as *mut _ {
+                        load_from_module()
+                    } else {
+                        Some(mem::transmute(ptr))
+                    }
+                }
+            }
+
+            #[inline(always)]
+            pub unsafe fn call($($argname: $argtype),*) $(-> $rettype)? {
+                let func: F = mem::transmute(PTR.load(Ordering::Relaxed));
+                func($($argname),*)
+            }
+        }
+        $(#[$meta])*
+        $vis use $symbol::call as $symbol;
+    )*
+    }
+}
+
+macro_rules! static_load {
+    (
+        $library:expr,
+        [$($symbol:ident),* $(,)?]
+    ) => {
+        $(
+            let $symbol = $library.proc_address(ansi_str!(sym $symbol))?;
+        )*
+        $(
+            c::$symbol::PTR.store($symbol.as_ptr(), Ordering::Relaxed);
+        )*
+    }
 }
 
 /// Load all needed functions from "api-ms-win-core-synch-l1-2-0".
 pub(super) fn load_synch_functions() {
     fn try_load() -> Option<()> {
         const MODULE_NAME: &CStr = c"api-ms-win-core-synch-l1-2-0";
-        const WAIT_ON_ADDRESS: &CStr = c"WaitOnAddress";
-        const WAKE_BY_ADDRESS_SINGLE: &CStr = c"WakeByAddressSingle";
 
         // Try loading the library and all the required functions.
         // If any step fails, then they all fail.
         let library = unsafe { Module::new(MODULE_NAME) }?;
-        let wait_on_address = library.proc_address(WAIT_ON_ADDRESS)?;
-        let wake_by_address_single = library.proc_address(WAKE_BY_ADDRESS_SINGLE)?;
+        static_load!(library, [WaitOnAddress, WakeByAddressSingle]);
 
-        c::WaitOnAddress::PTR.store(wait_on_address.as_ptr(), Ordering::Relaxed);
-        c::WakeByAddressSingle::PTR.store(wake_by_address_single.as_ptr(), Ordering::Relaxed);
         Some(())
     }
 
