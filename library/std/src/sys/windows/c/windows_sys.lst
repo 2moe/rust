@@ -2623,3 +2623,6 @@ Windows.Win32.System.Threading.GetCurrentThreadId
 Windows.Win32.Networking.WinSock.WSAPROTOCOL_INFOA
 Windows.Win32.Networking.WinSock.WSASocketA
 Windows.Win32.Networking.WinSock.WSADuplicateSocketA
+
+// NT vs 9x compat
+Windows.Win32.System.SystemInformation.GetVersion

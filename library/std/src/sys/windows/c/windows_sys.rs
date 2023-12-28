@@ -402,6 +402,10 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn GetVersion() -> u32;
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn GetWindowsDirectoryW(lpbuffer: PWSTR, usize: u32) -> u32;
 }
 #[link(name = "kernel32")]

@@ -24,6 +24,9 @@ use crate::ptr::NonNull;
 use crate::sync::atomic::Ordering;
 use crate::sys::c;
 
+mod version;
+pub use version::is_windows_nt;
+
 // This uses a static initializer to preload some imported functions.
 // The CRT (C runtime) executes static initializers before `main`
 // is called (for binaries) and before `DllMain` is called (for DLLs).
@@ -62,6 +65,8 @@ unsafe extern "C" fn init() {
     // any Rust functions or CRT functions if those functions touch any global state,
     // because this function runs during global initialization. For example, DO NOT
     // do any dynamic allocation, don't call LoadLibrary, etc.
+
+    version::init_windows_version_check();
 
     // check all the different synchronization primitives ...
     load_try_enter_critical_section_function();
