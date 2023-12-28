@@ -350,6 +350,52 @@ compat_fn_with_fallback! {
         GetSystemTime(&mut st);
         crate::sys::cvt(SystemTimeToFileTime(&st, lpSystemTimeAsFileTime)).unwrap();
     }
+
+    // >= 2000
+    // https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfilepointerex
+    pub fn SetFilePointerEx(
+        hfile: HANDLE,
+        lidistancetomove: i64,
+        lpnewfilepointer: *mut i64,
+        dwmovemethod: SET_FILE_POINTER_MOVE_METHOD,
+    ) -> BOOL {
+        let lDistanceToMove = lidistancetomove as i32;
+        let mut distance_to_move_high = (lidistancetomove >> 32) as i32;
+
+        let newPos_low = SetFilePointer(hfile, lDistanceToMove, &mut distance_to_move_high, dwmovemethod);
+
+        // since (-1 as u32) could be a valid value for the lower 32 bits of the new file pointer
+        // position, a call to GetLastError is needed to actually see if it failed
+        if newPos_low == INVALID_SET_FILE_POINTER && GetLastError() != NO_ERROR {
+            return FALSE;
+        }
+
+        if !lpnewfilepointer.is_null() {
+            *lpnewfilepointer = (distance_to_move_high as i64) << 32 | (newPos_low as i64);
+        }
+
+        TRUE
+    }
+}
+
+compat_fn_lazy! {
+    pub static KERNEL32: &CStr = c"kernel32" => { load: false, unicows: false };
+    // >= Vista / Server 2008 (XP / Server 2003 when linking a supported FileExtd.lib)
+    // https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileinformationbyhandle
+    pub fn SetFileInformationByHandle(
+        hfile: HANDLE,
+        fileinformationclass: FILE_INFO_BY_HANDLE_CLASS,
+        lpfileinformation: *const ::core::ffi::c_void,
+        dwbuffersize: u32,
+    ) -> BOOL;
+    // >= Vista / Server 2008 (XP / Server 2003 when linking a supported FileExtd.lib)
+    // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex
+    pub fn GetFileInformationByHandleEx(
+        hfile: HANDLE,
+        fileinformationclass: FILE_INFO_BY_HANDLE_CLASS,
+        lpfileinformation: *mut ::core::ffi::c_void,
+        dwbuffersize: u32,
+    ) -> BOOL;
 }
 
 compat_fn_optional! {

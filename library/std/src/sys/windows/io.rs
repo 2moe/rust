@@ -121,6 +121,10 @@ unsafe fn msys_tty_on(handle: c::HANDLE) -> bool {
         return false;
     }
 
+    let Some(get_file_info_ex) = c::GetFileInformationByHandleEx::option() else {
+        return false;
+    };
+
     /// Mirrors [`FILE_NAME_INFO`], giving it a fixed length that we can stack
     /// allocate
     ///
@@ -133,7 +137,7 @@ unsafe fn msys_tty_on(handle: c::HANDLE) -> bool {
     }
     let mut name_info = FILE_NAME_INFO { FileNameLength: 0, FileName: [0; c::MAX_PATH as usize] };
     // Safety: buffer length is fixed.
-    let res = c::GetFileInformationByHandleEx(
+    let res = get_file_info_ex(
         handle,
         c::FileNameInfo,
         &mut name_info as *mut _ as *mut c_void,

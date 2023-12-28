@@ -517,6 +517,10 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn SetEndOfFile(hfile: HANDLE) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn SetEnvironmentVariableW(lpname: PCWSTR, lpvalue: PCWSTR) -> BOOL;
 }
 #[link(name = "kernel32")]
@@ -534,6 +538,15 @@ extern "system" {
         lpfileinformation: *const ::core::ffi::c_void,
         dwbuffersize: u32,
     ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn SetFilePointer(
+        hfile: HANDLE,
+        ldistancetomove: i32,
+        lpdistancetomovehigh: *mut i32,
+        dwmovemethod: SET_FILE_POINTER_MOVE_METHOD,
+    ) -> u32;
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -3585,6 +3598,7 @@ impl ::core::clone::Clone for INIT_ONCE {
 }
 pub const INIT_ONCE_INIT_FAILED: u32 = 4u32;
 pub const INVALID_FILE_ATTRIBUTES: u32 = 4294967295u32;
+pub const INVALID_SET_FILE_POINTER: u32 = 4294967295u32;
 pub const INVALID_SOCKET: SOCKET = -1i32 as _;
 #[repr(C)]
 pub struct IN_ADDR {

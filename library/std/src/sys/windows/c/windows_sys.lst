@@ -2612,3 +2612,8 @@ Windows.Win32.System.Threading.CONDITION_VARIABLE
 // system time fallback
 Windows.Win32.System.SystemInformation.GetSystemTime
 Windows.Win32.System.Time.SystemTimeToFileTime
+
+// seek and truncate fallbacks
+Windows.Win32.Storage.FileSystem.SetFilePointer
+Windows.Win32.Storage.FileSystem.SetEndOfFile
+Windows.Win32.Storage.FileSystem.INVALID_SET_FILE_POINTER
