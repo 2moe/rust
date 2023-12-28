@@ -376,6 +376,28 @@ compat_fn_with_fallback! {
 
         TRUE
     }
+
+    // >= Vista / Server 2008
+    // https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsymboliclinkw
+    pub fn CreateSymbolicLinkW(
+        lpsymlinkfilename: PCWSTR,
+        lptargetfilename: PCWSTR,
+        dwflags: SYMBOLIC_LINK_FLAGS,
+    ) -> BOOLEAN {
+        SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+        0
+    }
+
+    // >= 2000
+    // https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createhardlinkw
+    pub fn CreateHardLinkW(
+        lpfilename: PCWSTR,
+        lpexistingfilename: PCWSTR,
+        lpsecurityattributes: *const SECURITY_ATTRIBUTES,
+    ) -> BOOL {
+        SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+        FALSE
+    }
 }
 
 compat_fn_lazy! {
@@ -396,6 +418,15 @@ compat_fn_lazy! {
         lpfileinformation: *mut ::core::ffi::c_void,
         dwbuffersize: u32,
     ) -> BOOL;
+
+    // >= Vista / Server 2008
+    // https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew
+    pub fn GetFinalPathNameByHandleW(
+        hfile: HANDLE,
+        lpszfilepath: PWSTR,
+        cchfilepath: u32,
+        dwflags: GETFINALPATHNAMEBYHANDLE_FLAGS,
+    ) -> u32;
 }
 
 compat_fn_optional! {
