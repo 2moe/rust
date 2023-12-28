@@ -779,10 +779,10 @@ extern "system" {
 }
 #[link(name = "ws2_32")]
 extern "system" {
-    pub fn WSADuplicateSocketW(
+    pub fn WSADuplicateSocketA(
         s: SOCKET,
         dwprocessid: u32,
-        lpprotocolinfo: *mut WSAPROTOCOL_INFOW,
+        lpprotocolinfo: *mut WSAPROTOCOL_INFOA,
     ) -> i32;
 }
 #[link(name = "ws2_32")]
@@ -815,11 +815,11 @@ extern "system" {
 }
 #[link(name = "ws2_32")]
 extern "system" {
-    pub fn WSASocketW(
+    pub fn WSASocketA(
         af: i32,
         r#type: i32,
         protocol: i32,
-        lpprotocolinfo: *const WSAPROTOCOL_INFOW,
+        lpprotocolinfo: *const WSAPROTOCOL_INFOA,
         g: u32,
         dwflags: u32,
     ) -> SOCKET;
@@ -4356,7 +4356,7 @@ impl ::core::clone::Clone for WSAPROTOCOLCHAIN {
     }
 }
 #[repr(C)]
-pub struct WSAPROTOCOL_INFOW {
+pub struct WSAPROTOCOL_INFOA {
     pub dwServiceFlags1: u32,
     pub dwServiceFlags2: u32,
     pub dwServiceFlags3: u32,
@@ -4376,10 +4376,10 @@ pub struct WSAPROTOCOL_INFOW {
     pub iSecurityScheme: i32,
     pub dwMessageSize: u32,
     pub dwProviderReserved: u32,
-    pub szProtocol: [u16; 256],
+    pub szProtocol: [u8; 256],
 }
-impl ::core::marker::Copy for WSAPROTOCOL_INFOW {}
-impl ::core::clone::Clone for WSAPROTOCOL_INFOW {
+impl ::core::marker::Copy for WSAPROTOCOL_INFOA {}
+impl ::core::clone::Clone for WSAPROTOCOL_INFOA {
     fn clone(&self) -> Self {
         *self
     }
