@@ -63,6 +63,12 @@ unsafe extern "C" fn init() {
     // because this function runs during global initialization. For example, DO NOT
     // do any dynamic allocation, don't call LoadLibrary, etc.
 
+    // check all the different synchronization primitives ...
+    load_try_enter_critical_section_function();
+    load_srw_functions();
+    // ... and init mutex downlevel compat based on it
+    super::locks::compat::init();
+
     // Attempt to preload the synch functions.
     load_synch_functions();
     #[cfg(not(target_vendor = "uwp"))]
@@ -399,6 +405,48 @@ pub(super) fn load_stack_overflow_functions() {
         let library = unsafe { Module::new(MODULE_NAME) }?;
 
         static_load!(library, [SetThreadStackGuarantee, AddVectoredExceptionHandler]);
+
+        Some(())
+    }
+
+    try_load();
+}
+
+pub(super) fn load_try_enter_critical_section_function() {
+    fn try_load() -> Option<()> {
+        const MODULE_NAME: &CStr = c"kernel32";
+
+        let library = unsafe { Module::new(MODULE_NAME) }?;
+        static_load!(library, [TryEnterCriticalSection]);
+        Some(())
+    }
+
+    try_load();
+}
+
+pub(super) fn load_srw_functions() {
+    fn try_load() -> Option<()> {
+        const MODULE_NAME: &CStr = c"kernel32";
+
+        // Try loading the library and all the required functions.
+        // If any step fails, then they all fail.
+        let library = unsafe { Module::new(MODULE_NAME) }?;
+
+        static_load!(
+            library,
+            [
+                // check the try_ functions first, as they have higher system requirements
+                TryAcquireSRWLockExclusive,
+                TryAcquireSRWLockShared,
+                AcquireSRWLockExclusive,
+                AcquireSRWLockShared,
+                ReleaseSRWLockExclusive,
+                ReleaseSRWLockShared,
+                SleepConditionVariableSRW,
+                WakeAllConditionVariable,
+                WakeConditionVariable
+            ]
+        );
 
         Some(())
     }

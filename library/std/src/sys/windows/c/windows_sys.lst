@@ -2595,3 +2595,16 @@ Windows.Win32.UI.Shell.GetUserProfileDirectoryW
 // tidy-alphabetical-end
 
 Windows.Win32.System.LibraryLoader.LoadLibraryA
+
+// sync primitives
+Windows.Win32.System.Threading.CreateMutexA
+Windows.Win32.System.Threading.ReleaseMutex
+Windows.Win32.System.Threading.CreateEventA
+Windows.Win32.System.Threading.PulseEvent
+Windows.Win32.System.Threading.CRITICAL_SECTION
+Windows.Win32.System.Threading.InitializeCriticalSection
+Windows.Win32.System.Threading.EnterCriticalSection
+Windows.Win32.System.Threading.LeaveCriticalSection
+Windows.Win32.System.Threading.DeleteCriticalSection
+Windows.Win32.System.Threading.SRWLOCK
+Windows.Win32.System.Threading.CONDITION_VARIABLE

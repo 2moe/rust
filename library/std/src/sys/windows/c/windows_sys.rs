@@ -76,6 +76,15 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn CreateEventA(
+        lpeventattributes: *const SECURITY_ATTRIBUTES,
+        bmanualreset: BOOL,
+        binitialstate: BOOL,
+        lpname: PCSTR,
+    ) -> HANDLE;
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn CreateEventW(
         lpeventattributes: *const SECURITY_ATTRIBUTES,
         bmanualreset: BOOL,
@@ -102,6 +111,14 @@ extern "system" {
         lpexistingfilename: PCWSTR,
         lpsecurityattributes: *const SECURITY_ATTRIBUTES,
     ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn CreateMutexA(
+        lpmutexattributes: *const SECURITY_ATTRIBUTES,
+        binitialowner: BOOL,
+        lpname: PCSTR,
+    ) -> HANDLE;
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -161,6 +178,10 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn DeleteCriticalSection(lpcriticalsection: *mut CRITICAL_SECTION) -> ();
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn DeleteFileW(lpfilename: PCWSTR) -> BOOL;
 }
 #[link(name = "kernel32")]
@@ -191,6 +212,10 @@ extern "system" {
         binherithandle: BOOL,
         dwoptions: DUPLICATE_HANDLE_OPTIONS,
     ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn EnterCriticalSection(lpcriticalsection: *mut CRITICAL_SECTION) -> ();
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -386,12 +411,20 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn InitializeCriticalSection(lpcriticalsection: *mut CRITICAL_SECTION) -> ();
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn InitializeProcThreadAttributeList(
         lpattributelist: LPPROC_THREAD_ATTRIBUTE_LIST,
         dwattributecount: u32,
         dwflags: u32,
         lpsize: *mut usize,
     ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn LeaveCriticalSection(lpcriticalsection: *mut CRITICAL_SECTION) -> ();
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -415,6 +448,10 @@ extern "system" {
         lpwidecharstr: PWSTR,
         cchwidechar: i32,
     ) -> i32;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn PulseEvent(hevent: HANDLE) -> BOOL;
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -453,6 +490,10 @@ extern "system" {
         lpoverlapped: *mut OVERLAPPED,
         lpcompletionroutine: LPOVERLAPPED_COMPLETION_ROUTINE,
     ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn ReleaseMutex(hmutex: HANDLE) -> BOOL;
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -1191,6 +1232,39 @@ pub const CREATE_SUSPENDED: PROCESS_CREATION_FLAGS = 4u32;
 pub const CREATE_UNICODE_ENVIRONMENT: PROCESS_CREATION_FLAGS = 1024u32;
 pub const CREATE_WAITABLE_TIMER_HIGH_RESOLUTION: u32 = 2u32;
 pub const CREATE_WAITABLE_TIMER_MANUAL_RESET: u32 = 1u32;
+#[repr(C)]
+pub struct CRITICAL_SECTION {
+    pub DebugInfo: *mut CRITICAL_SECTION_DEBUG,
+    pub LockCount: i32,
+    pub RecursionCount: i32,
+    pub OwningThread: HANDLE,
+    pub LockSemaphore: HANDLE,
+    pub SpinCount: usize,
+}
+impl ::core::marker::Copy for CRITICAL_SECTION {}
+impl ::core::clone::Clone for CRITICAL_SECTION {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+#[repr(C)]
+pub struct CRITICAL_SECTION_DEBUG {
+    pub Type: u16,
+    pub CreatorBackTraceIndex: u16,
+    pub CriticalSection: *mut CRITICAL_SECTION,
+    pub ProcessLocksList: LIST_ENTRY,
+    pub EntryCount: u32,
+    pub ContentionCount: u32,
+    pub Flags: u32,
+    pub CreatorBackTraceIndexHigh: u16,
+    pub Identifier: u16,
+}
+impl ::core::marker::Copy for CRITICAL_SECTION_DEBUG {}
+impl ::core::clone::Clone for CRITICAL_SECTION_DEBUG {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
 pub const CSTR_EQUAL: COMPARESTRING_RESULT = 2i32;
 pub const CSTR_GREATER_THAN: COMPARESTRING_RESULT = 3i32;
 pub const CSTR_LESS_THAN: COMPARESTRING_RESULT = 1i32;
@@ -3649,6 +3723,17 @@ pub struct LINGER {
 }
 impl ::core::marker::Copy for LINGER {}
 impl ::core::clone::Clone for LINGER {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+#[repr(C)]
+pub struct LIST_ENTRY {
+    pub Flink: *mut LIST_ENTRY,
+    pub Blink: *mut LIST_ENTRY,
+}
+impl ::core::marker::Copy for LIST_ENTRY {}
+impl ::core::clone::Clone for LIST_ENTRY {
     fn clone(&self) -> Self {
         *self
     }

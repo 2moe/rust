@@ -38,7 +38,6 @@ pub type LPWCH = *mut WCHAR;
 pub type LPWSTR = *mut WCHAR;
 
 pub type PLARGE_INTEGER = *mut c_longlong;
-pub type PSRWLOCK = *mut SRWLOCK;
 
 pub type socklen_t = c_int;
 pub type ADDRESS_FAMILY = USHORT;
@@ -353,6 +352,35 @@ compat_fn_optional! {
         dwmilliseconds: u32
     ) -> BOOL;
     pub fn WakeByAddressSingle(address: *const ::core::ffi::c_void);
+}
+
+compat_fn_optional! {
+    crate::sys::compat::load_try_enter_critical_section_function();
+    // >= NT 4
+    // https://docs.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-tryentercriticalsection
+    pub fn TryEnterCriticalSection(lpcriticalsection: *mut CRITICAL_SECTION) -> BOOL;
+}
+
+compat_fn_optional! {
+    crate::sys::compat::load_srw_functions();
+    // >= Win7 / Server 2008 R2
+    // https://docs.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-tryacquiresrwlockexclusive
+    pub fn TryAcquireSRWLockExclusive(srwlock: *mut SRWLOCK) -> BOOLEAN;
+    pub fn TryAcquireSRWLockShared(srwlock: *mut SRWLOCK) -> BOOLEAN;
+    // >= Vista / Server 2008
+    // https://docs.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-acquiresrwlockexclusive
+    pub fn AcquireSRWLockExclusive(srwlock: *mut SRWLOCK) -> ();
+    pub fn AcquireSRWLockShared(srwlock: *mut SRWLOCK) -> ();
+    pub fn ReleaseSRWLockExclusive(srwlock: *mut SRWLOCK) -> ();
+    pub fn ReleaseSRWLockShared(srwlock: *mut SRWLOCK) -> ();
+    pub fn SleepConditionVariableSRW(
+        conditionvariable: *mut CONDITION_VARIABLE,
+        srwlock: *mut SRWLOCK,
+        dwmilliseconds: u32,
+        flags: u32,
+    ) -> BOOL;
+    pub fn WakeAllConditionVariable(conditionvariable: *mut CONDITION_VARIABLE) -> ();
+    pub fn WakeConditionVariable(conditionvariable: *mut CONDITION_VARIABLE) -> ();
 }
 
 compat_fn_with_fallback! {
