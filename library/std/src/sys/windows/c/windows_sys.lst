@@ -2617,3 +2617,7 @@ Windows.Win32.System.Time.SystemTimeToFileTime
 Windows.Win32.Storage.FileSystem.SetFilePointer
 Windows.Win32.Storage.FileSystem.SetEndOfFile
 Windows.Win32.Storage.FileSystem.INVALID_SET_FILE_POINTER
+
+// hashmap crypt fallback
+Windows.Win32.System.SystemInformation.GetTickCount
+Windows.Win32.System.Threading.GetCurrentThreadId

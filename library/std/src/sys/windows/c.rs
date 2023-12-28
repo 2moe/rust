@@ -469,6 +469,55 @@ compat_fn_optional! {
     pub fn WakeConditionVariable(conditionvariable: *mut CONDITION_VARIABLE) -> ();
 }
 
+compat_fn_lazy! {
+    pub static USERENV: &CStr = c"userenv" => { load: true, unicows: false };
+
+    pub fn GetUserProfileDirectoryW(
+        htoken: HANDLE,
+        lpprofiledir: PWSTR,
+        lpcchsize: *mut u32,
+    ) -> BOOL;
+}
+
+compat_fn_with_fallback! {
+    pub static BCRYPT: &CStr = c"bcrypt" => { load: true, unicows: false };
+
+    pub fn BCryptGenRandom(
+        halgorithm: BCRYPT_ALG_HANDLE,
+        pbbuffer: *mut u8,
+        cbbuffer: u32,
+        dwflags: BCRYPTGENRANDOM_FLAGS,
+    ) -> NTSTATUS {
+        if SystemFunction036(pbbuffer.cast(), cbbuffer) == TRUE as _ {
+            0 // STATUS_SUCCESS
+        } else {
+            0xC0000001u32 as i32 // STATUS_UNSUCCESSFUL
+        }
+    }
+}
+
+compat_fn_lazy! {
+    pub static ADVAPI32: &CStr = c"advapi32" => { load: true, unicows: false };
+
+    pub fn OpenProcessToken(
+        processhandle: HANDLE,
+        desiredaccess: TOKEN_ACCESS_MASK,
+        tokenhandle: *mut HANDLE,
+    ) -> BOOL;
+}
+compat_fn_with_fallback! {
+    pub static ADVAPI32: &CStr = c"advapi32" => { load: true, unicows: false };
+
+    pub fn SystemFunction036(randombuffer: *mut ::core::ffi::c_void, randombufferlength: u32)
+    -> BOOLEAN {
+        0
+    }
+}
+pub const RtlGenRandom: unsafe fn(
+    randombuffer: *mut ::core::ffi::c_void,
+    randombufferlength: u32,
+) -> BOOLEAN = SystemFunction036;
+
 compat_fn_with_fallback! {
     pub static NTDLL: &CStr = c"ntdll" => { load: true, unicows: false };
 

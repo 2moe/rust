@@ -4,15 +4,22 @@ use crate::sys::c;
 
 pub fn hashmap_random_keys() -> (u64, u64) {
     let mut v = (0, 0);
-    let ret = unsafe {
-        c::BCryptGenRandom(
-            ptr::null_mut(),
-            &mut v as *mut _ as *mut u8,
-            mem::size_of_val(&v) as c::ULONG,
-            c::BCRYPT_USE_SYSTEM_PREFERRED_RNG,
-        )
-    };
-    if c::nt_success(ret) { v } else { fallback_rng() }
+
+    if c::BCryptGenRandom::available() {
+        let ret = unsafe {
+            c::BCryptGenRandom(
+                ptr::null_mut(),
+                &mut v as *mut _ as *mut u8,
+                mem::size_of_val(&v) as c::ULONG,
+                c::BCRYPT_USE_SYSTEM_PREFERRED_RNG,
+            )
+        };
+        if c::nt_success(ret) { v } else { fallback_rng() }
+    } else if c::SystemFunction036::available() {
+        fallback_rng()
+    } else {
+        true_fallback_rng()
+    }
 }
 
 /// Generate random numbers using the fallback RNG function (RtlGenRandom)
@@ -39,4 +46,19 @@ fn fallback_rng() -> (u64, u64) {
 #[inline(never)]
 fn fallback_rng() -> (u64, u64) {
     panic!("fallback RNG broken: RtlGenRandom() not supported on UWP");
+}
+
+#[inline(never)]
+fn true_fallback_rng() -> (u64, u64) {
+    unsafe {
+        let tickCount = c::GetTickCount();
+        let id = c::GetCurrentThreadId();
+        let mut file_time: c::FILETIME = crate::mem::zeroed();
+        c::GetSystemTimeAsFileTime(&mut file_time as *mut _);
+
+        (
+            (file_time.dwHighDateTime as u64) << 32 | tickCount as u64,
+            (id as u64) << 32 | file_time.dwLowDateTime as u64,
+        )
+    }
 }

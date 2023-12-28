@@ -283,6 +283,10 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn GetCurrentThreadId() -> u32;
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn GetEnvironmentStringsW() -> PWSTR;
 }
 #[link(name = "kernel32")]
@@ -391,6 +395,10 @@ extern "system" {
 #[link(name = "kernel32")]
 extern "system" {
     pub fn GetTempPathW(nbufferlength: u32, lpbuffer: PWSTR) -> u32;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn GetTickCount() -> u32;
 }
 #[link(name = "kernel32")]
 extern "system" {

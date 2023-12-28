@@ -320,6 +320,10 @@ pub fn temp_dir() -> PathBuf {
 
 #[cfg(not(target_vendor = "uwp"))]
 fn home_dir_crt() -> Option<PathBuf> {
+    if c::OpenProcessToken::option().is_none() || c::GetUserProfileDirectoryW::option().is_none() {
+        return None;
+    }
+
     unsafe {
         // The magic constant -4 can be used as the token passed to GetUserProfileDirectoryW below
         // instead of us having to go through these multiple steps to get a token. However this is
