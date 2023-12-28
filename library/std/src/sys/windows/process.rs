@@ -20,12 +20,12 @@ use crate::ptr;
 use crate::sync::Mutex;
 use crate::sys::args::{self, Arg};
 use crate::sys::c::{self, NonZeroDWORD, EXIT_FAILURE, EXIT_SUCCESS};
-use crate::sys::cvt;
 use crate::sys::fs::{File, OpenOptions};
 use crate::sys::handle::Handle;
 use crate::sys::path;
 use crate::sys::pipe::{self, AnonPipe};
 use crate::sys::stdio;
+use crate::sys::{compat, cvt};
 use crate::sys_common::process::{CommandEnv, CommandEnvs};
 use crate::sys_common::IntoInner;
 
@@ -282,10 +282,16 @@ impl Command {
         };
         let program = resolve_exe(&self.program, || env::var_os("PATH"), child_paths)?;
         // Case insensitive "ends_with" of UTF-16 encoded ".bat" or ".cmd"
-        let is_batch_file = matches!(
-            program.len().checked_sub(5).and_then(|i| program.get(i..)),
-            Some([46, 98 | 66, 97 | 65, 116 | 84, 0] | [46, 99 | 67, 109 | 77, 100 | 68, 0])
-        );
+
+        let end = program.len().checked_sub(5).and_then(|i| program.get(i..));
+        let is_batch_file = if compat::is_windows_nt() {
+            matches!(
+                end,
+                Some([46, 98 | 66, 97 | 65, 116 | 84, 0] | [46, 99 | 67, 109 | 77, 100 | 68, 0])
+            )
+        } else {
+            matches!(end, Some([46, 98 | 66, 97 | 65, 116 | 84, 0]))
+        };
         let (program, mut cmd_str) = if is_batch_file {
             (
                 command_prompt()?,
@@ -298,7 +304,11 @@ impl Command {
         cmd_str.push(0); // add null terminator
 
         // stolen from the libuv code.
-        let mut flags = self.flags | c::CREATE_UNICODE_ENVIRONMENT;
+        let mut flags = self.flags;
+        if compat::is_windows_nt() {
+            // a unicode environment is not supported on 9x/ME
+            flags |= c::CREATE_UNICODE_ENVIRONMENT;
+        }
         if self.detach {
             flags |= c::DETACHED_PROCESS | c::CREATE_NEW_PROCESS_GROUP;
         }
@@ -607,7 +617,11 @@ impl Stdio {
                 opts.read(stdio_id == c::STD_INPUT_HANDLE);
                 opts.write(stdio_id != c::STD_INPUT_HANDLE);
                 opts.security_attributes(&mut sa);
-                File::open(Path::new(r"\\.\NUL"), &opts).map(|file| file.into_inner())
+                File::open(
+                    Path::new(if super::compat::is_windows_nt() { r"\\.\NUL" } else { "NUL" }),
+                    &opts,
+                )
+                .map(|file| file.into_inner())
             }
         }
     }
@@ -844,12 +858,21 @@ fn make_command_line(argv0: &OsStr, args: &[Arg], force_quotes: bool) -> io::Res
 
 // Get `cmd.exe` for use with bat scripts, encoded as a UTF-16 string.
 fn command_prompt() -> io::Result<Vec<u16>> {
-    let mut system: Vec<u16> = super::fill_utf16_buf(
-        |buf, size| unsafe { c::GetSystemDirectoryW(buf, size) },
-        |buf| buf.into(),
-    )?;
-    system.extend("\\cmd.exe".encode_utf16().chain([0]));
-    Ok(system)
+    if compat::is_windows_nt() {
+        let mut system: Vec<u16> = super::fill_utf16_buf(
+            |buf, size| unsafe { c::GetSystemDirectoryW(buf, size) },
+            |buf| buf.into(),
+        )?;
+        system.extend("\\cmd.exe".encode_utf16().chain([0]));
+        Ok(system)
+    } else {
+        let mut system: Vec<u16> = super::fill_utf16_buf(
+            |buf, size| unsafe { c::GetWindowsDirectoryW(buf, size) },
+            |buf| buf.into(),
+        )?;
+        system.extend("\\command.com".encode_utf16().chain([0]));
+        Ok(system)
+    }
 }
 
 fn make_envp(maybe_env: Option<BTreeMap<EnvKey, OsString>>) -> io::Result<(*mut c_void, Vec<u16>)> {

@@ -19,6 +19,7 @@ use crate::sys::{c, to_u16s};
 use crate::sys_common::wstr::WStrUnits;
 use crate::vec;
 
+use super::compat;
 use crate::iter;
 
 /// This is the const equivalent to `NonZeroU16::new(n).unwrap()`
@@ -271,7 +272,10 @@ pub(crate) fn make_bat_command_line(
     // It is necessary to surround the command in an extra pair of quotes,
     // hence the trailing quote here. It will be closed after all arguments
     // have been added.
-    let mut cmd: Vec<u16> = "cmd.exe /d /c \"".encode_utf16().collect();
+    let mut cmd: Vec<u16> =
+        if compat::is_windows_nt() { "cmd.exe /d /c \"" } else { "command.com /c \"" }
+            .encode_utf16()
+            .collect();
 
     // Push the script name surrounded by its quote pair.
     cmd.push(b'"' as u16);
