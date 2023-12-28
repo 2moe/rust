@@ -417,6 +417,13 @@ compat_fn_with_fallback! {
         Sleep(0);
         TRUE
     }
+
+    // >= NT 3.5+, 95+
+    // https://docs.microsoft.com/en-us/windows/win32/api/processenv/nf-processenv-freeenvironmentstringsw
+    pub fn FreeEnvironmentStringsW(penv: PCWSTR) -> BOOL {
+        // just leak it on NT 3.1
+        TRUE
+    }
 }
 
 compat_fn_lazy! {
