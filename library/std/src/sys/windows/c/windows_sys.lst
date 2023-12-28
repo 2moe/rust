@@ -2631,3 +2631,8 @@ Windows.Win32.System.SystemInformation.GetVersion
 Windows.Win32.Storage.FileSystem.CopyFileW
 Windows.Win32.Storage.FileSystem.GetFileSize
 Windows.Win32.Storage.FileSystem.INVALID_FILE_SIZE
+
+// async io fallbacks
+Windows.Win32.System.IO.CancelIo
+Windows.Win32.System.Pipes.CreatePipe
+Windows.Win32.Storage.FileSystem.WriteFile

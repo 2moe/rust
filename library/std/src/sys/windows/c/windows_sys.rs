@@ -143,6 +143,15 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn CreatePipe(
+        hreadpipe: *mut HANDLE,
+        hwritepipe: *mut HANDLE,
+        lppipeattributes: *const SECURITY_ATTRIBUTES,
+        nsize: u32,
+    ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn CreateProcessW(
         lpapplicationname: PCWSTR,
         lpcommandline: PWSTR,
@@ -721,6 +730,16 @@ extern "system" {
         nnumberofcharstowrite: u32,
         lpnumberofcharswritten: *mut u32,
         lpreserved: *const ::core::ffi::c_void,
+    ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn WriteFile(
+        hfile: HANDLE,
+        lpbuffer: *const u8,
+        nnumberofbytestowrite: u32,
+        lpnumberofbyteswritten: *mut u32,
+        lpoverlapped: *mut OVERLAPPED,
     ) -> BOOL;
 }
 #[link(name = "kernel32")]

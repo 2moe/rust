@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use super::compat;
 use crate::cmp;
 use crate::io::{self, BorrowedCursor, ErrorKind, IoSlice, IoSliceMut, Read};
 use crate::mem;
@@ -230,10 +231,32 @@ impl Handle {
         len: usize,
         offset: Option<u64>,
     ) -> io::Result<usize> {
-        let mut io_status = c::IO_STATUS_BLOCK::PENDING;
-
         // The length is clamped at u32::MAX.
         let len = cmp::min(len, c::DWORD::MAX as usize) as c::DWORD;
+
+        if !compat::supports_async_io() {
+            if let Some(offset) = offset {
+                cvt(c::SetFilePointerEx(
+                    self.as_raw_handle(),
+                    offset as i64,
+                    ptr::null_mut(),
+                    c::FILE_BEGIN,
+                ))?;
+            }
+
+            let mut bytes_read = 0;
+            cvt(c::ReadFile(
+                self.as_raw_handle(),
+                buf.cast(),
+                len,
+                &mut bytes_read,
+                ptr::null_mut(),
+            ))?;
+
+            return Ok(bytes_read as usize);
+        }
+
+        let mut io_status = c::IO_STATUS_BLOCK::PENDING;
         let status = c::NtReadFile(
             self.as_handle(),
             ptr::null_mut(),
@@ -278,10 +301,34 @@ impl Handle {
     ///
     /// If `offset` is `None` then the current file position is used.
     fn synchronous_write(&self, buf: &[u8], offset: Option<u64>) -> io::Result<usize> {
-        let mut io_status = c::IO_STATUS_BLOCK::PENDING;
-
         // The length is clamped at u32::MAX.
         let len = cmp::min(buf.len(), c::DWORD::MAX as usize) as c::DWORD;
+
+        if !compat::supports_async_io() {
+            unsafe {
+                if let Some(offset) = offset {
+                    cvt(c::SetFilePointerEx(
+                        self.as_raw_handle(),
+                        offset as i64,
+                        ptr::null_mut(),
+                        c::FILE_BEGIN,
+                    ))?;
+                }
+
+                let mut bytes_written = 0;
+                cvt(c::WriteFile(
+                    self.as_raw_handle(),
+                    buf.as_ptr(),
+                    len,
+                    &mut bytes_written,
+                    ptr::null_mut(),
+                ))?;
+
+                return Ok(bytes_written as usize);
+            }
+        }
+
+        let mut io_status = c::IO_STATUS_BLOCK::PENDING;
         let status = unsafe {
             c::NtWriteFile(
                 self.as_handle(),

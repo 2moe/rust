@@ -474,6 +474,8 @@ compat_fn_lazy! {
         cchcount2: i32,
         bignorecase: BOOL,
     ) -> COMPARESTRING_RESULT;
+
+    pub fn CancelIo(hfile: HANDLE) -> BOOL;
 }
 
 compat_fn_optional! {
