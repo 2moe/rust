@@ -382,6 +382,10 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn GetSystemTime(lpsystemtime: *mut SYSTEMTIME) -> ();
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn GetSystemTimeAsFileTime(lpsystemtimeasfiletime: *mut FILETIME) -> ();
 }
 #[link(name = "kernel32")]
@@ -592,6 +596,11 @@ extern "system" {
 #[link(name = "kernel32")]
 extern "system" {
     pub fn SwitchToThread() -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn SystemTimeToFileTime(lpsystemtime: *const SYSTEMTIME, lpfiletime: *mut FILETIME)
+    -> BOOL;
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -4062,6 +4071,23 @@ pub const SYMBOLIC_LINK_FLAG_DIRECTORY: SYMBOLIC_LINK_FLAGS = 1u32;
 pub const SYMLINK_FLAG_RELATIVE: u32 = 1u32;
 pub type SYNCHRONIZATION_ACCESS_RIGHTS = u32;
 pub const SYNCHRONIZE: FILE_ACCESS_RIGHTS = 1048576u32;
+#[repr(C)]
+pub struct SYSTEMTIME {
+    pub wYear: u16,
+    pub wMonth: u16,
+    pub wDayOfWeek: u16,
+    pub wDay: u16,
+    pub wHour: u16,
+    pub wMinute: u16,
+    pub wSecond: u16,
+    pub wMilliseconds: u16,
+}
+impl ::core::marker::Copy for SYSTEMTIME {}
+impl ::core::clone::Clone for SYSTEMTIME {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
 #[repr(C)]
 pub struct SYSTEM_INFO {
     pub Anonymous: SYSTEM_INFO_0,

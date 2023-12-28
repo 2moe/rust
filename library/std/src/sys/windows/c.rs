@@ -341,6 +341,15 @@ compat_fn_with_fallback! {
     pub fn GetTempPath2W(bufferlength: u32, buffer: PWSTR) -> u32 {
         GetTempPathW(bufferlength, buffer)
     }
+
+    // >= 95 / NT 3.5
+    // https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimeasfiletime
+    pub fn GetSystemTimeAsFileTime(lpSystemTimeAsFileTime: *mut FILETIME) -> () {
+        // implementation based on old MSDN docs
+        let mut st: SYSTEMTIME = crate::mem::zeroed();
+        GetSystemTime(&mut st);
+        crate::sys::cvt(SystemTimeToFileTime(&st, lpSystemTimeAsFileTime)).unwrap();
+    }
 }
 
 compat_fn_optional! {

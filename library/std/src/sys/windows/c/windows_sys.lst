@@ -2608,3 +2608,7 @@ Windows.Win32.System.Threading.LeaveCriticalSection
 Windows.Win32.System.Threading.DeleteCriticalSection
 Windows.Win32.System.Threading.SRWLOCK
 Windows.Win32.System.Threading.CONDITION_VARIABLE
+
+// system time fallback
+Windows.Win32.System.SystemInformation.GetSystemTime
+Windows.Win32.System.Time.SystemTimeToFileTime
