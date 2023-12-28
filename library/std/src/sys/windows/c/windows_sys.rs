@@ -69,6 +69,14 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    pub fn CopyFileW(
+        lpexistingfilename: PCWSTR,
+        lpnewfilename: PCWSTR,
+        bfailifexists: BOOL,
+    ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
     pub fn CreateDirectoryW(
         lppathname: PCWSTR,
         lpsecurityattributes: *const SECURITY_ATTRIBUTES,
@@ -316,6 +324,10 @@ extern "system" {
         lpfileinformation: *mut ::core::ffi::c_void,
         dwbuffersize: u32,
     ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn GetFileSize(hfile: HANDLE, lpfilesizehigh: *mut u32) -> u32;
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -3610,6 +3622,7 @@ impl ::core::clone::Clone for INIT_ONCE {
 }
 pub const INIT_ONCE_INIT_FAILED: u32 = 4u32;
 pub const INVALID_FILE_ATTRIBUTES: u32 = 4294967295u32;
+pub const INVALID_FILE_SIZE: u32 = 4294967295u32;
 pub const INVALID_SET_FILE_POINTER: u32 = 4294967295u32;
 pub const INVALID_SOCKET: SOCKET = -1i32 as _;
 #[repr(C)]

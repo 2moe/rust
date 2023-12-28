@@ -453,6 +453,17 @@ compat_fn_lazy! {
         cchfilepath: u32,
         dwflags: GETFINALPATHNAMEBYHANDLE_FLAGS,
     ) -> u32;
+
+    // >= NT 4+; partial: 95+ (provided by unicows, returns "not implemented")
+    // https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-copyfileexw
+    pub fn CopyFileExW(
+        lpexistingfilename: PCWSTR,
+        lpnewfilename: PCWSTR,
+        lpprogressroutine: LPPROGRESS_ROUTINE,
+        lpdata: *const ::core::ffi::c_void,
+        pbcancel: *mut BOOL,
+        dwcopyflags: u32,
+    ) -> BOOL;
 }
 
 compat_fn_optional! {

@@ -17,7 +17,7 @@ use crate::sys_common::{AsInner, FromInner, IntoInner};
 use crate::thread;
 
 use super::path::maybe_verbatim;
-use super::{api, to_u16s, IoResult};
+use super::{api, compat, to_u16s, IoResult};
 
 pub struct File {
     handle: Handle,
@@ -1098,8 +1098,22 @@ pub fn unlink(p: &Path) -> io::Result<()> {
 pub fn rename(old: &Path, new: &Path) -> io::Result<()> {
     let old = maybe_verbatim(old)?;
     let new = maybe_verbatim(new)?;
-    cvt(unsafe { c::MoveFileExW(old.as_ptr(), new.as_ptr(), c::MOVEFILE_REPLACE_EXISTING) })?;
-    Ok(())
+    let res =
+        cvt(unsafe { c::MoveFileExW(old.as_ptr(), new.as_ptr(), c::MOVEFILE_REPLACE_EXISTING) });
+
+    match res {
+        Err(e) if e.raw_os_error() == Some(c::ERROR_CALL_NOT_IMPLEMENTED as i32) => {
+            // 9x/ME doesn't support MoveFileEx, so we fall back to copy + delete and hope for the
+            // best
+            unsafe {
+                cvt(c::CopyFileW(old.as_ptr(), new.as_ptr(), c::TRUE))?;
+                cvt(c::DeleteFileW(old.as_ptr()))?;
+                Ok(())
+            }
+        }
+        Err(e) => Err(e),
+        Ok(_) => Ok(()),
+    }
 }
 
 pub fn rmdir(p: &Path) -> io::Result<()> {
@@ -1402,36 +1416,91 @@ pub fn canonicalize(p: &Path) -> io::Result<PathBuf> {
 }
 
 pub fn copy(from: &Path, to: &Path) -> io::Result<u64> {
-    unsafe extern "system" fn callback(
-        _TotalFileSize: c::LARGE_INTEGER,
-        _TotalBytesTransferred: c::LARGE_INTEGER,
-        _StreamSize: c::LARGE_INTEGER,
-        StreamBytesTransferred: c::LARGE_INTEGER,
-        dwStreamNumber: c::DWORD,
-        _dwCallbackReason: c::DWORD,
-        _hSourceFile: c::HANDLE,
-        _hDestinationFile: c::HANDLE,
-        lpData: c::LPCVOID,
-    ) -> c::DWORD {
-        if dwStreamNumber == 1 {
-            *(lpData as *mut i64) = StreamBytesTransferred;
-        }
-        c::PROGRESS_CONTINUE
-    }
     let pfrom = maybe_verbatim(from)?;
     let pto = maybe_verbatim(to)?;
-    let mut size = 0i64;
-    cvt(unsafe {
-        c::CopyFileExW(
-            pfrom.as_ptr(),
-            pto.as_ptr(),
-            Some(callback),
-            &mut size as *mut _ as *mut _,
-            ptr::null_mut(),
-            0,
-        )
-    })?;
-    Ok(size as u64)
+
+    // NT 4+
+    //
+    // Unicows implements CopyFileExW similarly to other functions (convert to ANSI, call ...A API).
+    // However, 9x/ME don't support CopyFileExA either. This means that we have to check both for
+    // the API to exist *and* that we're running on NT.
+    if c::CopyFileExW::option().is_some() && compat::is_windows_nt() {
+        unsafe extern "system" fn callback(
+            _TotalFileSize: c::LARGE_INTEGER,
+            _TotalBytesTransferred: c::LARGE_INTEGER,
+            _StreamSize: c::LARGE_INTEGER,
+            StreamBytesTransferred: c::LARGE_INTEGER,
+            dwStreamNumber: c::DWORD,
+            _dwCallbackReason: c::DWORD,
+            _hSourceFile: c::HANDLE,
+            _hDestinationFile: c::HANDLE,
+            lpData: c::LPCVOID,
+        ) -> c::DWORD {
+            if dwStreamNumber == 1 {
+                *(lpData as *mut i64) = StreamBytesTransferred;
+            }
+            c::PROGRESS_CONTINUE
+        }
+
+        let mut size = 0i64;
+        cvt(unsafe {
+            c::CopyFileExW(
+                pfrom.as_ptr(),
+                pto.as_ptr(),
+                Some(callback),
+                &mut size as *mut _ as *mut _,
+                ptr::null_mut(),
+                0,
+            )
+        })?;
+        Ok(size as u64)
+    } else {
+        // NT 3.51 and earlier, or 9x/ME
+
+        // If `CopyFileExW` is not available, we have to copy the file with the non-Ex API,
+        // then open it with `dwDesiredAccess = 0` (query attributes only),
+        // then use `GetFileSize` to retrieve the size
+        cvt(unsafe {
+            c::CopyFileW(
+                pfrom.as_ptr(),
+                pto.as_ptr(),
+                c::FALSE, // FALSE: allow overwriting
+            )
+        })?;
+
+        let handle = unsafe {
+            c::CreateFileW(
+                pto.as_ptr(),
+                0,
+                c::FILE_SHARE_READ | c::FILE_SHARE_WRITE,
+                ptr::null_mut(),
+                c::OPEN_EXISTING,
+                0,
+                ptr::null_mut(),
+            )
+        };
+
+        let handle = if let Ok(handle) =
+            OwnedHandle::try_from(unsafe { HandleOrInvalid::from_raw_handle(handle) })
+        {
+            handle
+        } else {
+            return Err(Error::last_os_error());
+        };
+
+        let mut upper_u32: u32 = 0;
+        let lower_u32 = unsafe { c::GetFileSize(handle.as_raw_handle(), &mut upper_u32) };
+
+        // 0xFFFFFFFF might be a valid length, so we have to check GetLastError
+        if lower_u32 == c::INVALID_FILE_SIZE {
+            let error = api::get_last_error();
+            if error.code != c::ERROR_SUCCESS {
+                return Err(Error::from_raw_os_error(error.code as i32));
+            }
+        }
+
+        Ok((upper_u32 as u64) << 32 | lower_u32 as u64)
+    }
 }
 
 #[allow(dead_code)]

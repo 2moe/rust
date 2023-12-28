@@ -2626,3 +2626,8 @@ Windows.Win32.Networking.WinSock.WSADuplicateSocketA
 
 // NT vs 9x compat
 Windows.Win32.System.SystemInformation.GetVersion
+
+// file ops fallbacks
+Windows.Win32.Storage.FileSystem.CopyFileW
+Windows.Win32.Storage.FileSystem.GetFileSize
+Windows.Win32.Storage.FileSystem.INVALID_FILE_SIZE
