@@ -406,6 +406,17 @@ compat_fn_with_fallback! {
         SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
         FALSE
     }
+
+    // >= NT 4+
+    // https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-switchtothread
+    pub fn SwitchToThread() -> BOOL {
+        // A value of zero causes the thread to relinquish the remainder of its time slice to any
+        // other thread of equal priority that is ready to run. If there are no other threads of
+        // equal priority ready to run, the function returns immediately, and the thread continues
+        // execution.
+        Sleep(0);
+        TRUE
+    }
 }
 
 compat_fn_lazy! {
