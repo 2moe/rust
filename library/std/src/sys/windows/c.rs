@@ -464,6 +464,16 @@ compat_fn_lazy! {
         pbcancel: *mut BOOL,
         dwcopyflags: u32,
     ) -> BOOL;
+
+    // >= Vista / Server 2008
+    // https://docs.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-comparestringordinal
+    pub fn CompareStringOrdinal(
+        lpstring1: PCWSTR,
+        cchcount1: i32,
+        lpstring2: PCWSTR,
+        cchcount2: i32,
+        bignorecase: BOOL,
+    ) -> COMPARESTRING_RESULT;
 }
 
 compat_fn_optional! {

@@ -74,6 +74,10 @@ impl EnvKey {
 // [4] https://docs.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-comparestringordinal
 impl Ord for EnvKey {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
+        if !c::CompareStringOrdinal::option().is_some() {
+            return self.os_string.cmp(&other.os_string);
+        }
+
         unsafe {
             let result = c::CompareStringOrdinal(
                 self.utf16.as_ptr(),
@@ -124,7 +128,12 @@ impl PartialEq<str> for EnvKey {
 // Environment variable keys should preserve their original case even though
 // they are compared using a caseless string mapping.
 impl From<OsString> for EnvKey {
-    fn from(k: OsString) -> Self {
+    fn from(mut k: OsString) -> Self {
+        if !c::CompareStringOrdinal::option().is_some() {
+            k.make_ascii_uppercase();
+            return EnvKey { utf16: Vec::new(), os_string: k };
+        }
+
         EnvKey { utf16: k.encode_wide().collect(), os_string: k }
     }
 }
@@ -857,8 +866,12 @@ fn make_envp(maybe_env: Option<BTreeMap<EnvKey, OsString>>) -> io::Result<(*mut 
         }
 
         for (k, v) in env {
-            ensure_no_nuls(k.os_string)?;
-            blk.extend(k.utf16);
+            if !c::CompareStringOrdinal::option().is_some() {
+                blk.extend(ensure_no_nuls(k.os_string)?.encode_wide());
+            } else {
+                ensure_no_nuls(k.os_string)?;
+                blk.extend(k.utf16);
+            }
             blk.push('=' as u16);
             blk.extend(ensure_no_nuls(v)?.encode_wide());
             blk.push(0);
