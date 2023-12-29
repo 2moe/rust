@@ -464,7 +464,7 @@ compat_fn_lazy! {
         dwflags: GETFINALPATHNAMEBYHANDLE_FLAGS,
     ) -> u32;
 
-    // >= NT 4+; partial: 95+ (provided by unicows, returns "not implemented")
+    // >= NT 4+; partial: 95+ (would be provided by unicows, but only returns "not implemented")
     // https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-copyfileexw
     pub fn CopyFileExW(
         lpexistingfilename: PCWSTR,
@@ -485,6 +485,8 @@ compat_fn_lazy! {
         bignorecase: BOOL,
     ) -> COMPARESTRING_RESULT;
 
+    // >= NT4+, 98+
+    // https://learn.microsoft.com/en-us/windows/win32/fileio/cancelio
     pub fn CancelIo(hfile: HANDLE) -> BOOL;
 
     // >= Vista / Server 2008
@@ -556,6 +558,8 @@ compat_fn_optional! {
 compat_fn_lazy! {
     pub static USERENV: &CStr = c"userenv" => { load: true, unicows: false };
 
+    // >= NT4
+    // https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-getuserprofiledirectoryw
     pub fn GetUserProfileDirectoryW(
         htoken: HANDLE,
         lpprofiledir: PWSTR,
@@ -566,6 +570,8 @@ compat_fn_lazy! {
 compat_fn_with_fallback! {
     pub static BCRYPT: &CStr = c"bcrypt" => { load: true, unicows: false };
 
+    // >= Vista / Server 2008
+    // https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom
     pub fn BCryptGenRandom(
         halgorithm: BCRYPT_ALG_HANDLE,
         pbbuffer: *mut u8,
@@ -583,6 +589,8 @@ compat_fn_with_fallback! {
 compat_fn_lazy! {
     pub static ADVAPI32: &CStr = c"advapi32" => { load: true, unicows: false };
 
+    // NT only
+    // https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocesstoken
     pub fn OpenProcessToken(
         processhandle: HANDLE,
         desiredaccess: TOKEN_ACCESS_MASK,
@@ -592,6 +600,8 @@ compat_fn_lazy! {
 compat_fn_with_fallback! {
     pub static ADVAPI32: &CStr = c"advapi32" => { load: true, unicows: false };
 
+    // >= XP / Server 2003
+    // https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-rtlgenrandom
     pub fn SystemFunction036(randombuffer: *mut ::core::ffi::c_void, randombufferlength: u32)
     -> BOOLEAN {
         0
@@ -605,6 +615,7 @@ pub const RtlGenRandom: unsafe fn(
 compat_fn_lazy! {
     pub static NTDLL: &CStr = c"ntdll" => { load: true, unicows: false };
 
+    // NT only
     pub fn NtCreateFile(
         filehandle: *mut HANDLE,
         desiredaccess: FILE_ACCESS_RIGHTS,
@@ -625,6 +636,7 @@ pub mod ntdll {
     compat_fn_lazy! {
         pub static NTDLL: &CStr = c"ntdll" => { load: true, unicows: false };
 
+        // NT only
         pub fn NtReadFile(
             filehandle: HANDLE,
             event: HANDLE,
