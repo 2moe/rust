@@ -1,9 +1,9 @@
-use crate::cell::UnsafeCell;
 use crate::ptr;
 use crate::sync::atomic::{
     AtomicBool, AtomicPtr, AtomicU32,
     Ordering::{AcqRel, Acquire, Relaxed, Release},
 };
+use crate::sync::Once;
 use crate::sys::c;
 
 #[cfg(test)]
@@ -93,8 +93,7 @@ pub struct StaticKey {
     next: AtomicPtr<StaticKey>,
     /// Currently, destructors cannot be unregistered, so we cannot use racy
     /// initialization for keys. Instead, we need synchronize initialization.
-    /// Use the Windows-provided `Once` since it does not require TLS.
-    once: UnsafeCell<c::INIT_ONCE>,
+    once: Once,
 }
 
 impl StaticKey {
@@ -104,7 +103,7 @@ impl StaticKey {
             key: AtomicU32::new(0),
             dtor,
             next: AtomicPtr::new(ptr::null_mut()),
-            once: UnsafeCell::new(c::INIT_ONCE_STATIC_INIT),
+            once: Once::new(),
         }
     }
 
@@ -130,29 +129,17 @@ impl StaticKey {
     #[cold]
     unsafe fn init(&'static self) -> Key {
         if self.dtor.is_some() {
-            let mut pending = c::FALSE;
-            let r = c::InitOnceBeginInitialize(self.once.get(), 0, &mut pending, ptr::null_mut());
-            assert_eq!(r, c::TRUE);
-
-            if pending == c::FALSE {
-                // Some other thread initialized the key, load it.
-                self.key.load(Relaxed) - 1
-            } else {
+            self.once.call_once(|| {
                 let key = c::TlsAlloc();
                 if key == c::TLS_OUT_OF_INDEXES {
-                    // Wakeup the waiting threads before panicking to avoid deadlock.
-                    c::InitOnceComplete(self.once.get(), c::INIT_ONCE_INIT_FAILED, ptr::null_mut());
                     panic!("out of TLS indexes");
                 }
 
                 self.key.store(key + 1, Release);
                 register_dtor(self);
+            });
 
-                let r = c::InitOnceComplete(self.once.get(), 0, ptr::null_mut());
-                debug_assert_eq!(r, c::TRUE);
-
-                key
-            }
+            self.key.load(Relaxed) - 1
         } else {
             // If there is no destructor to clean up, we can use racy initialization.
 
