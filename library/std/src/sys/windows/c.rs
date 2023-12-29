@@ -475,6 +475,31 @@ compat_fn_lazy! {
     ) -> COMPARESTRING_RESULT;
 
     pub fn CancelIo(hfile: HANDLE) -> BOOL;
+
+    // >= Vista / Server 2008
+    // https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-initializeprocthreadattributelist
+    pub fn InitializeProcThreadAttributeList(
+        lpattributelist: LPPROC_THREAD_ATTRIBUTE_LIST,
+        dwattributecount: u32,
+        dwflags: u32,
+        lpsize: *mut usize,
+    ) -> BOOL;
+
+    // >= Vista / Server 2008
+    // https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute
+    pub fn UpdateProcThreadAttribute(
+        lpattributelist: LPPROC_THREAD_ATTRIBUTE_LIST,
+        dwflags: u32,
+        attribute: usize,
+        lpvalue: *const ::core::ffi::c_void,
+        cbsize: usize,
+        lppreviousvalue: *mut ::core::ffi::c_void,
+        lpreturnsize: *const usize,
+    ) -> BOOL;
+
+    // >= Vista / Server 2008
+    // https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-deleteprocthreadattributelist
+    pub fn DeleteProcThreadAttributeList(lpattributelist: LPPROC_THREAD_ATTRIBUTE_LIST) -> ();
 }
 
 compat_fn_optional! {

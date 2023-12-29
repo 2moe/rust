@@ -360,6 +360,13 @@ impl Command {
         let mut si_ex;
 
         if !self.proc_thread_attributes.is_empty() {
+            if c::InitializeProcThreadAttributeList::option().is_none() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Setting proc_thread_attributes is not supported on this version of Windows",
+                ));
+            }
+
             si.cb = mem::size_of::<c::STARTUPINFOEXW>() as u32;
             flags |= c::EXTENDED_STARTUPINFO_PRESENT;
 
