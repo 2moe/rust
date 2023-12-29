@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 cfg_if::cfg_if! {
     if #[cfg(any(
         target_os = "linux",
@@ -18,6 +20,9 @@ cfg_if::cfg_if! {
     ))] {
         mod id;
         pub use id::Parker;
+    } else if #[cfg(all(target_os = "windows", target_vendor = "rust9x"))] {
+        mod generic;
+        pub use generic::Parker;
     } else {
         pub use crate::sys::thread_parking::Parker;
     }

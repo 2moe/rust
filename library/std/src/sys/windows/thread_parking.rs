@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 // Thread parker implementation for Windows.
 //
 // This uses WaitOnAddress and WakeByAddressSingle if available (Windows 8+).
