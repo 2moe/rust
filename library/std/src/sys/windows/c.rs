@@ -423,6 +423,17 @@ compat_fn_with_fallback! {
         // just leak it on NT 3.1
         TRUE
     }
+
+    // >= Vista / Server 2008
+    // https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createwaitabletimerexw
+    pub fn CreateWaitableTimerExW(
+        lptimerattributes: *const SECURITY_ATTRIBUTES,
+        lptimername: PCWSTR,
+        dwflags: u32,
+        dwdesiredaccess: u32,
+    ) -> HANDLE {
+        ptr::null_mut()
+    }
 }
 
 compat_fn_lazy! {
