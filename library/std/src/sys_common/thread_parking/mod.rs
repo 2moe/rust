@@ -20,7 +20,7 @@ cfg_if::cfg_if! {
     ))] {
         mod id;
         pub use id::Parker;
-    } else if #[cfg(all(target_os = "windows", target_vendor = "rust9x"))] {
+    } else if #[cfg(all(target_arch = "x86", target_os = "windows", target_vendor = "rust9x"))] {
         mod generic;
         pub use generic::Parker;
     } else {
