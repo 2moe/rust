@@ -21,3 +21,13 @@ docs = false
 # incremental = true
 # Make the compiler and standard library faster to build, at the expense of a ~20% runtime slowdown.
 # lto = "off"
+
+dist-src = false
+
+[dist]
+src-tarball = false
+
+# for creating a downloadable package: python x.py install, then create an archive this
+[install]
+prefix = "../dist/rust9x"
+sysconfdir = "."
