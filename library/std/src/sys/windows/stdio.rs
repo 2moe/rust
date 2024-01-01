@@ -7,6 +7,7 @@ use crate::os::windows::io::{FromRawHandle, IntoRawHandle};
 use crate::ptr;
 use crate::str;
 use crate::sys::c;
+use crate::sys::compat;
 use crate::sys::cvt;
 use crate::sys::handle::Handle;
 use crate::sys::windows::api;
@@ -201,6 +202,11 @@ fn write_valid_utf8_to_console(handle: c::HANDLE, utf8: &str) -> io::Result<usiz
     if written == utf16.len() {
         Ok(utf8.len())
     } else {
+        if !compat::is_windows_nt() {
+            // FIXME: This function should manually convert to the target codepage on 9x/ME, and
+            // handle incomplete writes by calculating how many utf8-effective bytes were written.
+            return Ok(utf8.len());
+        }
         // Make sure we didn't end up writing only half of a surrogate pair (even though the chance
         // is tiny). Because it is not possible for user code to re-slice `data` in such a way that
         // a missing surrogate can be produced (and also because of the UTF-8 validation above),
