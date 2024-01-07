@@ -1,0 +1,115 @@
+name: build rust9x toolchain
+
+env:
+  STAGE: 1
+  PRE_RELEASE: true
+  TAG: rust9x-1.76-beta-v3
+  PREV_TAG: rust9x-1.76-beta-v2
+  PACKED_FILE: rust9x.7z
+  DIGEST_FILE: sha256sum.txt
+  CACHE_KEY: Windows-build
+  HOST: x86_64-pc-windows-msvc
+
+on:
+  push:
+    paths:
+      - ".github/workflows/build-9x.yml"
+      # - config.rust9x.toml
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # repository: rust9x/rust
+          ref: rust9x
+          fetch-depth: 50
+          # submodules: true
+
+      - name: restore build-cache
+        id: cache-restore
+        uses: actions/cache/restore@v3
+        with:
+          # fail-on-cache-miss: false
+          path: build
+          key: ${{ env.CACHE_KEY }}
+
+      - name: rm link
+        continue-on-error: true
+        run: |
+          Get-ChildItem
+          Remove-Item -Force .\build\host
+          Get-ChildItem build
+
+      - name: build 9x
+        run: |
+          Copy-Item -Path config.rust9x.toml -Destination config.toml -Force
+          python x.py build --verbose --incremental library/std --stage ${{ env.STAGE }}
+
+      - name: delete old cache
+        if: ${{ steps.cache-restore.outputs.cache-hit }}
+        continue-on-error: true
+        uses: MyAlbum/purge-cache@v2
+        with:
+          debug: true
+          max-age: 60
+
+      - name: save build-cache
+        uses: actions/cache/save@v3
+        # if: always()
+        with:
+          path: build
+          key: ${{ env.CACHE_KEY }}
+
+      - name: ls
+        run: |
+          Get-ChildItem build\host\
+          Get-ChildItem build\host\stage${{ env.STAGE }}
+
+  pack:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: restore cache
+        uses: actions/cache/restore@v3
+        with:
+          path: build
+          fail-on-cache-miss: true
+          key: ${{ env.CACHE_KEY }}
+
+      - name: ls
+        run: |
+          Get-ChildItem
+          Get-ChildItem build
+          Get-ChildItem "build\host\stage${{env.STAGE}}"
+
+      - name: pack toolchain
+        # It's `\path\to\build\x86_64-pc-windows-msvc`, not `\path\to\build\host`
+        working-directory: ${{ format('{0}\build\{1}', github.workspace, env.HOST) }}
+        env:
+          stage_dir: ${{ format('stage{0}', env.STAGE) }}
+          packed: ${{ env.PACKED_FILE }}
+          digest: ${{ env.DIGEST_FILE }}
+          link: rust9x
+        run: |
+          New-Item -ItemType SymbolicLink -Target ${{env.stage_dir}} -Path ${{env.link}} -Force
+          7z a -mmt -m0=LZMA -mx7 ${{env.packed}} ${{env.link}}
+          sha256sum ${{env.packed}} > ${{env.digest}}
+
+          foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
+              Move-Item -Path $i -Destination ${{ github.workspace }} -Force
+          }
+
+      - name: release
+        uses: softprops/action-gh-release@v1
+        env:
+          url: ${{ format('https://github.com/rust9x/rust/compare/{0}...{1}', env.PREV_TAG, env.TAG) }}
+        with:
+          tag_name: ${{ env.TAG }}
+          prerelease: ${{ env.PRE_RELEASE }}
+          files: |
+            ${{env.PACKED_FILE}}
+            ${{env.DIGEST_FILE}}
+          append_body: true
+          body: |
+            Full Changelog: ${{env.url}}
