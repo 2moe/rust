@@ -5,7 +5,8 @@ env:
   PRE_RELEASE: true
   TAG: rust9x-1.76-beta-v3
   PREV_TAG: rust9x-1.76-beta-v2
-  PACKED_FILE: rust9x.7z
+  TAR_FILE: rust9x.tar
+  COMPRESSED_FILE: rust9x.tar.zst
   DIGEST_FILE: sha256sum.txt
   CACHE_KEY: Windows-build
   HOST: x86_64-pc-windows-msvc
@@ -88,12 +89,14 @@ jobs:
         working-directory: ${{ format('{0}\build\{1}', github.workspace, env.HOST) }}
         env:
           stage_dir: ${{ format('stage{0}', env.STAGE) }}
-          packed: ${{ env.PACKED_FILE }}
+          new_dir: rust9x
+          packed: ${{env.COMPRESSED_FILE}}
           digest: ${{ env.DIGEST_FILE }}
-          link: rust9x
         run: |
-          New-Item -ItemType SymbolicLink -Target ${{env.stage_dir}} -Path ${{env.link}} -Force
-          7z a -mmt -m0=LZMA -mx7 ${{env.packed}} ${{env.link}}
+          Move-Item -Path ${{env.stage_dir}} -Destination ${{env.new_dir}} -Force
+          # DO NOT USE `tar xxx | zstd yyy` in pwsh !!!
+          tar -cf ${{ env.TAR_FILE }} ${{env.new_dir}}
+          zstd -15 -v -T0 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
@@ -108,7 +111,7 @@ jobs:
           tag_name: ${{ env.TAG }}
           prerelease: ${{ env.PRE_RELEASE }}
           files: |
-            ${{env.PACKED_FILE}}
+            ${{env.COMPRESSED_FILE}}
             ${{env.DIGEST_FILE}}
           append_body: true
           body: |
