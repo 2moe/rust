@@ -5,7 +5,7 @@ env:
   PRE_RELEASE: true
   TAG: rust9x-1.76-beta-v3
   PREV_TAG: rust9x-1.76-beta-v2
-  PACKED_FILE: rust9x.tar.zst
+  TAR_FILE: rust9x.tar
   DIGEST_FILE: sha256sum.txt
   CACHE_KEY: Windows-build
   HOST: x86_64-pc-windows-msvc
@@ -84,19 +84,18 @@ jobs:
           Get-ChildItem "build\host\stage${{env.STAGE}}"
 
       - name: pack toolchain
+        # It's `\path\to\build\x86_64-pc-windows-msvc`, not `\path\to\build\host`
+        working-directory: ${{ format('{0}\build\{1}', github.workspace, env.HOST) }}
         env:
-          # It's `\path\to\build\x86_64-pc-windows-msvc`, not `\path\to\build\host`
-          dir: ${{ format('{0}\build\{1}\stage{2}', github.workspace, env.HOST, env.STAGE) }}
-          # stage_dir: ${{ format('stage{0}', env.STAGE) }}
-          packed: ${{ env.PACKED_FILE }}
+          stage_dir: ${{ format('stage{0}', env.STAGE) }}
           digest: ${{ env.DIGEST_FILE }}
           link: rust9x
+          packed: ${{ format('{0}.zst', env.TAR_FILE) }}
         run: |
-          # New-Item -ItemType SymbolicLink -Target ${{env.stage_dir}} -Path ${{env.link}} -Force
-          Move-Item -Path ${{env.dir}} -Destination D:\${{env.link}}
-          Set-Location D:\
-          # 7z a -mmt -m0=LZMA -mx3 ${{env.packed}} ${{env.link}}
-          tar -cvf - ${{env.link}} | zstd -3 -T0 --long=31 -c > ${{env.packed}}
+          New-Item -ItemType SymbolicLink -Target ${{env.stage_dir}} -Path ${{env.link}} -Force
+          # DO NOT USE `tar xxx | zstd yyy` in pwsh !!!
+          tar -cf ${{ env.TAR_FILE }} ${{env.link}}
+          zstd -15 -v -T0 --long=31 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
