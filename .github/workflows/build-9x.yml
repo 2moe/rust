@@ -7,6 +7,7 @@ env:
   PREV_TAG: rust9x-1.76-beta-v2
   TAR_FILE: rust9x.tar
   COMPRESSED_FILE: rust9x.tar.zst
+  ZSTD_LV: 15
   DIGEST_FILE: sha256sum.txt
   CACHE_KEY: Windows-build
   HOST: x86_64-pc-windows-msvc
@@ -96,7 +97,7 @@ jobs:
           Move-Item -Path ${{env.stage_dir}} -Destination ${{env.new_dir}} -Force
           # DO NOT USE `tar xxx | zstd yyy` in pwsh !!!
           tar -cf ${{ env.TAR_FILE }} ${{env.new_dir}}
-          zstd -15 -v -T0 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
+          zstd -${{env.ZSTD_LV}} --long -v -T0 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
