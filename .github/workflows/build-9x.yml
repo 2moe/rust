@@ -82,7 +82,7 @@ jobs:
         run: |
           Get-ChildItem
           Get-ChildItem build
-          Get-ChildItem "build\host\stage${{env.STAGE}}"
+          Get-ChildItem "build\host\stage${{ env.STAGE }}"
 
       - name: pack toolchain
         # It's `\path\to\build\x86_64-pc-windows-msvc`, not `\path\to\build\host`
@@ -90,7 +90,7 @@ jobs:
         env:
           stage_dir: ${{ format('stage{0}', env.STAGE) }}
           new_dir: rust9x
-          packed: ${{env.COMPRESSED_FILE}}
+          packed: ${{ env.COMPRESSED_FILE }}
           digest: ${{ env.DIGEST_FILE }}
         run: |
           Move-Item -Path ${{env.stage_dir}} -Destination ${{env.new_dir}} -Force
@@ -106,13 +106,13 @@ jobs:
       - name: release
         uses: softprops/action-gh-release@v1
         env:
-          url: ${{ format('https://github.com/rust9x/rust/compare/{0}...{1}', env.PREV_TAG, env.TAG) }}
+          url: ${{ format('https://github.com/{0}/compare/{1}...{2}', github.repository, env.PREV_TAG, env.TAG) }}
         with:
           tag_name: ${{ env.TAG }}
           prerelease: ${{ env.PRE_RELEASE }}
           files: |
-            ${{env.COMPRESSED_FILE}}
-            ${{env.DIGEST_FILE}}
+            ${{ env.COMPRESSED_FILE }}
+            ${{ env.DIGEST_FILE }}
           append_body: true
           body: |
             Full Changelog: ${{env.url}}
