@@ -89,12 +89,12 @@ jobs:
         env:
           stage_dir: ${{ format('stage{0}', env.STAGE) }}
           digest: ${{ env.DIGEST_FILE }}
-          link: rust9x
+          new_dir: rust9x
           packed: ${{ format('{0}.zst', env.TAR_FILE) }}
         run: |
-          New-Item -ItemType SymbolicLink -Target ${{env.stage_dir}} -Path ${{env.link}} -Force
+          Move-Item -Path ${{env.stage_dir}} -Destination {{env.new_dir}}
           # DO NOT USE `tar xxx | zstd yyy` in pwsh !!!
-          tar -cf ${{ env.TAR_FILE }} ${{env.link}}
+          tar -cf ${{ env.TAR_FILE }} ${{env.new_dir}}
           zstd -15 -v -T0 --long=31 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
           sha256sum ${{env.packed}} > ${{env.digest}}
 
