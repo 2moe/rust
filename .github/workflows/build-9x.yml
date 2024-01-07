@@ -110,8 +110,8 @@ jobs:
           tag_name: ${{ env.TAG }}
           prerelease: ${{ env.PRE_RELEASE }}
           files: |
-            ${{env.PACKED_FILE}}
-            ${{env.DIGEST_FILE}}
+            ${{ env.TAR_FILE }}.zst
+            ${{ env.DIGEST_FILE }}
           append_body: true
           body: |
             Full Changelog: ${{env.url}}
