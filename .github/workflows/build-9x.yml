@@ -5,7 +5,7 @@ env:
   PRE_RELEASE: true
   TAG: rust9x-1.76-beta-v3
   PREV_TAG: rust9x-1.76-beta-v2
-  PACKED_FILE: rust9x.7z
+  PACKED_FILE: rust9x.tar.zst
   DIGEST_FILE: sha256sum.txt
   CACHE_KEY: Windows-build
   HOST: x86_64-pc-windows-msvc
@@ -95,7 +95,8 @@ jobs:
           # New-Item -ItemType SymbolicLink -Target ${{env.stage_dir}} -Path ${{env.link}} -Force
           Move-Item -Path ${{env.dir}} -Destination D:\${{env.link}}
           Set-Location D:\
-          7z a -mmt -m0=LZMA -mx3 ${{env.packed}} ${{env.link}}
+          # 7z a -mmt -m0=LZMA -mx3 ${{env.packed}} ${{env.link}}
+          tar -cvf - ${{env.link}} | zstd -3 -T0 --long=31 -c > ${{env.packed}}
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
