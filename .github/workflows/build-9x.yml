@@ -92,7 +92,7 @@ jobs:
           new_dir: rust9x
           packed: ${{ format('{0}.zst', env.TAR_FILE) }}
         run: |
-          Move-Item -Path ${{env.stage_dir}} -Destination {{env.new_dir}}
+          Move-Item -Path ${{env.stage_dir}} -Destination ${{env.new_dir}}
           # DO NOT USE `tar xxx | zstd yyy` in pwsh !!!
           tar -cf ${{ env.TAR_FILE }} ${{env.new_dir}}
           zstd -15 -v -T0 --long=31 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
