@@ -4,7 +4,7 @@ env:
   BUILD_ARGS: "--incremental --verbose"
   PACKED_FILE: rust9x.7z
   COMPRESSION_LV: 5
-  COMPRESSION_ALGO: LZMA2
+  COMPRESSION_ALGO: LZMA
   DIGEST_FILE: sha256sum.txt
   BUILD_CACHE_KEY: Windows-build
   # DIST_CACHE_KEY: Windows-dist
