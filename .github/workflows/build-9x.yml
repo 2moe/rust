@@ -1,9 +1,10 @@
 name: build rust9x toolchain
 
 env:
+  BUILD_ARGS: "--incremental --verbose"
+  PACKED_FILE: rust9x.7z
   COMPRESSION_LV: 5
   COMPRESSION_ALGO: LZMA2
-  PACKED_FILE: rust9x.7z
   DIGEST_FILE: sha256sum.txt
   BUILD_CACHE_KEY: Windows-build
   DIST_CACHE_KEY: dist
@@ -53,7 +54,7 @@ jobs:
       - name: build 9x
         run: |
           Copy-Item -Path config.rust9x.toml -Destination config.toml -Force
-          python x.py install --verbose
+          python x.py install ${{ env.BUILD_ARGS }}
 
       - name: list the dist directory
         run: |
