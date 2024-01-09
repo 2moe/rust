@@ -1,22 +1,19 @@
 name: build rust9x toolchain
 
 env:
-  STAGE: 1
-  PRE_RELEASE: true
-  TAG: rust9x-1.76-beta-v3
-  PREV_TAG: rust9x-1.76-beta-v2
-  TAR_FILE: rust9x.tar
-  COMPRESSED_FILE: rust9x.tar.zst
-  ZSTD_LV: 15
+  BUILD_ARGS: "--incremental --verbose"
+  PACKED_FILE: rust9x.7z
+  COMPRESSION_LV: 5
+  COMPRESSION_ALGO: LZMA2
   DIGEST_FILE: sha256sum.txt
-  CACHE_KEY: Windows-build
-  HOST: x86_64-pc-windows-msvc
+  BUILD_CACHE_KEY: Windows-build
+  # DIST_CACHE_KEY: Windows-dist
 
 on:
   push:
-    paths:
-      - ".github/workflows/build-9x.yml"
-      # - config.rust9x.toml
+    tags:
+      - "*.*"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -32,21 +29,32 @@ jobs:
         id: cache-restore
         uses: actions/cache/restore@v3
         with:
-          # fail-on-cache-miss: false
+          # enableCrossOsArchive: true
           path: build
-          key: ${{ env.CACHE_KEY }}
+          key: ${{ env.BUILD_CACHE_KEY }}
 
-      - name: rm link
+      # If you don't remove the host symlinks, and you use build-cache with actions, then there is a panic when building rust.
+      # > panic message:
+      #     thread 'main' panicked at src/lib.rs:476:13:
+      #     fs::remove_dir(&host) failed with The directory name is invalid. (os error 267)
+      - name: remove link & list directory
         continue-on-error: true
         run: |
-          Get-ChildItem
-          Remove-Item -Force .\build\host
-          Get-ChildItem build
+          Remove-Item -Path build\host -Force
+          Get-ChildItem -Depth 1 -Path build
 
       - name: build 9x
         run: |
           Copy-Item -Path config.rust9x.toml -Destination config.toml -Force
-          python x.py build --verbose --incremental library/std --stage ${{ env.STAGE }}
+          python x.py install ${{ env.BUILD_ARGS }}
+
+      - name: move & list the dist directory
+        run: |
+          if (Test-Path dist) {
+              Remove-Item -Recurse -Force -Path dist
+          }
+          Move-Item -Path ..\dist -Destination .
+          Get-ChildItem -Depth 2 -Path dist
 
       - name: delete old cache
         if: ${{ steps.cache-restore.outputs.cache-hit }}
@@ -58,46 +66,65 @@ jobs:
 
       - name: save build-cache
         uses: actions/cache/save@v3
-        # if: always()
         with:
           path: build
-          key: ${{ env.CACHE_KEY }}
+          key: ${{ env.BUILD_CACHE_KEY }}
 
-      - name: ls
+      # - name: save dist-cache
+      #   uses: actions/cache/save@v3
+      #   continue-on-error: false
+      #   if: always()
+      #   with:
+      #     path: dist
+      #     key: ${{ env.DIST_CACHE_KEY }}
+
+      # pack:
+      #   needs: build
+      #   runs-on: windows-latest
+      #   steps:
+      #     - name: restore cache
+      #       uses: actions/cache/restore@v3
+      #       with:
+      #         path: dist
+      #         key: ${{ env.DIST_CACHE_KEY }}
+      #         fail-on-cache-miss: true
+      #         # enableCrossOsArchive: true
+
+      - name: get release information
+        id: get_info
+        env:
+          api_url: ${{ format('https://api.github.com/repos/{0}/releases', github.repository) }}
+          api_header_0: "Accept: application/vnd.github+json"
+          api_header_1: "X-GitHub-Api-Version: 2022-11-28"
         run: |
-          Get-ChildItem build\host\
-          Get-ChildItem build\host\stage${{ env.STAGE }}
+          $release = curl.exe -L -H "${{env.api_header_0}}" -H "${{env.api_header_1}}" "${{env.api_url}}" | ConvertFrom-Json
 
-  pack:
-    needs: build
-    runs-on: windows-latest
-    steps:
-      - name: restore cache
-        uses: actions/cache/restore@v3
-        with:
-          path: build
-          fail-on-cache-miss: true
-          key: ${{ env.CACHE_KEY }}
+          [String] $prev_tag = $release[1].tag_name
 
-      - name: ls
-        run: |
-          foreach ($i in @(".", "build", "build\host", "build\host\stage${{ env.STAGE }}")) {
-              Get-ChildItem $i
+          if ($prev_tag.Trim().Length -eq 0) {
+              "comparation=''" >> $env:GITHUB_OUTPUT
+              exit
           }
 
+          $tag = ("${{ github.ref }}" -split '/')[-1]
+
+          "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $env:GITHUB_OUTPUT
+
+          $is_prerelease = ($tag -match "alpha|beta|rc").ToString().ToLower()
+          "prerelease=$is_prerelease" >> $env:GITHUB_OUTPUT
+
+      # In the **dist** directory, package the **rust9x** folder in 7z format, compute its sha256 hash, and finally move the 7z and hash files to the `${{ github.workspace }}` directory.
       - name: pack toolchain
-        # It's `\path\to\build\x86_64-pc-windows-msvc`, not `\path\to\build\host`
-        working-directory: ${{ format('{0}\build\{1}', github.workspace, env.HOST) }}
+        working-directory: ${{ format('{0}\dist', github.workspace) }}
         env:
-          stage_dir: ${{ format('stage{0}', env.STAGE) }}
-          new_dir: rust9x
-          packed: ${{ env.COMPRESSED_FILE }}
+          packed: ${{ env.PACKED_FILE }}
           digest: ${{ env.DIGEST_FILE }}
+          lv: ${{ env.COMPRESSION_LV }}
+          algorithm: ${{ env.COMPRESSION_ALGO }}
+          dir: rust9x
         run: |
-          Move-Item -Path ${{env.stage_dir}} -Destination ${{env.new_dir}} -Force
-          # DO NOT USE `tar xxx | zstd yyy` in pwsh !!!
-          tar -cf ${{ env.TAR_FILE }} ${{env.new_dir}}
-          zstd -${{ env.ZSTD_LV }} --long -v -T0 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
+          Get-ChildItem -Depth 1
+          7z a -mmt -mx${{env.lv}} -m0=BCJ2 -m1=${{env.algorithm}} ${{env.packed}} ${{env.dir}}
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
@@ -107,13 +134,15 @@ jobs:
       - name: release
         uses: softprops/action-gh-release@v1
         env:
-          url: ${{ format('https://github.com/{0}/compare/{1}...{2}', github.repository, env.PREV_TAG, env.TAG) }}
+          installation_url: https://github.com/rust9x/rust/wiki#installation
+          comparation: ${{ steps.get_info.outputs.comparation }}
         with:
-          tag_name: ${{ env.TAG }}
-          prerelease: ${{ env.PRE_RELEASE }}
+          prerelease: ${{ steps.get_info.outputs.prerelease }}
           files: |
-            ${{ env.COMPRESSED_FILE }}
+            ${{ env.PACKED_FILE }}
             ${{ env.DIGEST_FILE }}
           append_body: true
           body: |
-            Full Changelog: ${{env.url}}
+            [Installation notes](${{env.installation_url}})
+
+            ${{env.comparation}}
