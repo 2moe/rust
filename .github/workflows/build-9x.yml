@@ -15,16 +15,16 @@ on:
       - "*.*"
 
 jobs:
-  preset:
-    runs-on: windows-latest
-    outputs:
-      dist_dir: ${{ steps.get_dist_dir.outputs.dist }}
-    steps:
-      - name: get dist dir
-        id: get_dist_dir
-        run: |
-          Set-Location -Path ..
-          "dist=$(Get-Location)\dist" >> $env:GITHUB_OUTPUT
+  # preset:
+  #   runs-on: windows-latest
+  #   outputs:
+  #     dist_dir: ${{ steps.get_dist_dir.outputs.dist }}
+  #   steps:
+  #     - name: get dist dir
+  #       id: get_dist_dir
+  #       run: |
+  #         Set-Location -Path ..
+  #         "dist=$(Get-Location)\dist" >> $env:GITHUB_OUTPUT
 
   # build:
   #   runs-on: windows-latest
@@ -93,14 +93,14 @@ jobs:
     # needs: build
     runs-on: windows-latest
     env:
-      DIST: ${{ needs.preset.outputs.dist_dir }}
+      # DIST: ${{ needs.preset.outputs.dist_dir }}
+      DIST: D:\a\rust\dist
     steps:
       - name: restore cache
         uses: actions/cache/restore@v3
         continue-on-error: false
         with:
-          # path: ${{ env.DIST }}
-          path: .
+          path: ${{ env.DIST }}
           key: ${{ env.DIST_CACHE_KEY }}
           fail-on-cache-miss: true
 
@@ -148,7 +148,7 @@ jobs:
           installation_url: https://github.com/rust9x/rust/wiki#installation
           comparation: ${{ steps.get_info.outputs.comparation }}
         with:
-          prerelease: ${{ contains(fromJSON('["alpha", "beta", "rc"]'), github.ref) }}
+          prerelease: ${{ contains(fromJSON('["alpha", "beta", "rc"]', github.ref) }}
           files: |
             ${{ env.PACKED_FILE }}
             ${{ env.DIGEST_FILE }}
