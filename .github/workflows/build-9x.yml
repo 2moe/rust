@@ -27,6 +27,8 @@ jobs:
           "dist=$(Get-Location)\dist" >> $GITHUB_OUTPUT
           Write-Output var: $GITHUB_OUTPUT 
           Write-Output env: ${{ env.GITHUB_OUTPUT }}
+          Write-Output pwsh-env: $env:GITHUB_OUTPUT
+          exit 1
 
   # build:
   #   runs-on: windows-latest
@@ -119,7 +121,7 @@ jobs:
               exit
           }
 
-          $tag = (${{ github.ref }} -split '/')[-1]
+          $tag = ("${{ github.ref }}" -split '/')[-1]
 
           "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $GITHUB_OUTPUT
 
