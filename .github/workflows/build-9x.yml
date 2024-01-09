@@ -33,7 +33,7 @@ jobs:
           api: ${{ format('https://api.github.com/repos/{0}/releases', github.repository) }}
         run: |
           Set-Location -Path ..
-          $dist = $(Get-Location)\dist
+          $dist = "$(Get-Location)\dist"
           "dist=$dist" >> $GITHUB_OUTPUT
           "DIST=$dist" >> ${{ env.GITHUB_ENV }}
 
