@@ -114,7 +114,7 @@ jobs:
           digest: ${{ env.DIGEST_FILE }}
         run: |
           Get-ChildItem -Depth 1
-          7z a -mmt -mx${{ env.COMPRESSION_LV }} -m0=BCJ2 -m1=${{ env.COMPRESSION_ALGO }} ${{packed}} rust9x
+          7z a -mmt -mx${{ env.COMPRESSION_LV }} -m0=BCJ2 -m1=${{ env.COMPRESSION_ALGO }} ${{env.packed}} rust9x
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
