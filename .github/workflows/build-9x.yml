@@ -89,7 +89,7 @@ jobs:
 
   pack:
     # needs: [preset, build]
-    needs: preset
+    # needs: preset
     # needs: build
     runs-on: windows-latest
     env:
