@@ -7,7 +7,7 @@ env:
   COMPRESSION_ALGO: LZMA2
   DIGEST_FILE: sha256sum.txt
   BUILD_CACHE_KEY: Windows-build
-  DIST_CACHE_KEY: Windows-dist
+  # DIST_CACHE_KEY: Windows-dist
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
         id: cache-restore
         uses: actions/cache/restore@v3
         with:
-          enableCrossOsArchive: true
+          # enableCrossOsArchive: true
           path: build
           key: ${{ env.BUILD_CACHE_KEY }}
 
@@ -64,31 +64,31 @@ jobs:
           debug: true
           max-age: 60
 
-      - name: save dist-cache
-        uses: actions/cache/save@v3
-        continue-on-error: false
-        if: always()
-        with:
-          path: dist
-          key: ${{ env.DIST_CACHE_KEY }}
-
       - name: save build-cache
         uses: actions/cache/save@v3
         with:
           path: build
           key: ${{ env.BUILD_CACHE_KEY }}
 
-  pack:
-    needs: build
-    runs-on: windows-latest
-    steps:
-      - name: restore cache
-        uses: actions/cache/restore@v3
-        with:
-          path: dist
-          key: ${{ env.DIST_CACHE_KEY }}
-          fail-on-cache-miss: true
-          enableCrossOsArchive: true
+      # - name: save dist-cache
+      #   uses: actions/cache/save@v3
+      #   continue-on-error: false
+      #   if: always()
+      #   with:
+      #     path: dist
+      #     key: ${{ env.DIST_CACHE_KEY }}
+
+      # pack:
+      #   needs: build
+      #   runs-on: windows-latest
+      #   steps:
+      #     - name: restore cache
+      #       uses: actions/cache/restore@v3
+      #       with:
+      #         path: dist
+      #         key: ${{ env.DIST_CACHE_KEY }}
+      #         fail-on-cache-miss: true
+      #         # enableCrossOsArchive: true
 
       - name: get release information
         id: get_info
