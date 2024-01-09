@@ -43,6 +43,10 @@ jobs:
           path: build
           key: ${{ env.BUILD_CACHE_KEY }}
 
+      # If you don't remove the host symlink, then there will be a panic when building rust.
+      # > panic message:
+      #     thread 'main' panicked at src/lib.rs:476:13:
+      #     fs::remove_dir(&host) failed with The directory name is invalid. (os error 267)
       - name: remove link & list directory
         continue-on-error: true
         run: |
@@ -113,6 +117,7 @@ jobs:
 
           "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $GITHUB_OUTPUT
 
+      # In the **dist** directory, package the **rust9x** folder in 7z format, compute its sha256 hash, and finally move the 7z and hash files to the `github.workspace` directory.
       - name: pack toolchain
         working-directory: ${{ env.DIST }}
         env:
@@ -120,9 +125,10 @@ jobs:
           digest: ${{ env.DIGEST_FILE }}
           lv: ${{ env.COMPRESSION_LV }}
           algorithm: ${{ env.COMPRESSION_ALGO }}
+          dir: rust9x
         run: |
           Get-ChildItem -Depth 1
-          7z a -mmt -mx${{env.lv}} -m0=BCJ2 -m1=${{env.algorithm}} ${{env.packed}} rust9x
+          7z a -mmt -mx${{env.lv}} -m0=BCJ2 -m1=${{env.algorithm}} ${{env.packed}} ${{env.dir}}
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
