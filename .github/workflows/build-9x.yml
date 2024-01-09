@@ -148,7 +148,7 @@ jobs:
           installation_url: https://github.com/rust9x/rust/wiki#installation
           comparation: ${{ steps.get_info.outputs.comparation }}
         with:
-          prerelease: ${{ contains(fromJSON('["alpha", "beta", "rc"]', github.ref) }}
+          prerelease: ${{ contains(fromJSON('["alpha", "beta", "rc"]'), github.ref) }}
           files: |
             ${{ env.PACKED_FILE }}
             ${{ env.DIGEST_FILE }}
