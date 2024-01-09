@@ -89,7 +89,8 @@ jobs:
   #         key: ${{ env.BUILD_CACHE_KEY }}
 
   pack:
-    needs: [preset, build]
+    # needs: [preset, build]
+    needs: preset
     runs-on: windows-latest
     env:
       DIST: ${{ needs.preset.outputs.dist_dir }}
