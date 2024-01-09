@@ -99,7 +99,9 @@ jobs:
         run: |
           $release = curl.exe -L -H "${{env.api_header_0}}" -H "${{env.api_header_1}}" "${{env.api_url}}" | ConvertFrom-Json
 
-          [String] $prev_tag = $release[1].tag_name
+          # Latest release: $release[0]
+          # Previous release: $release[1]
+          [String] $prev_tag = $release[0].tag_name
 
           if ($prev_tag.Trim().Length -eq 0) {
               "comparation=''" >> $env:GITHUB_OUTPUT
