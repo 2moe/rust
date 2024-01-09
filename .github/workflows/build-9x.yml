@@ -68,6 +68,8 @@ jobs:
 
       - name: save dist-cache
         uses: actions/cache/save@v3
+        continue-on-error: false
+        if: always()
         with:
           path: ${{ env.DIST }}
           key: ${{ env.DIST_CACHE_KEY }}
