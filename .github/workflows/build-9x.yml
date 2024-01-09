@@ -24,12 +24,7 @@ jobs:
         id: get_dist_dir
         run: |
           Set-Location -Path ..
-          "dist=$(Get-Location)\dist" >> $GITHUB_OUTPUT
-          Write-Output var: $GITHUB_OUTPUT 
-          Write-Output env: ${{ env.GITHUB_OUTPUT }}
-          Write-Output pwsh-env: $env:GITHUB_OUTPUT
-          Get-Content $env:GITHUB_OUTPUT
-          exit 1
+          "dist=$(Get-Location)\dist" >> $env:GITHUB_OUTPUT
 
   # build:
   #   runs-on: windows-latest
@@ -95,6 +90,7 @@ jobs:
   pack:
     # needs: [preset, build]
     needs: preset
+    # needs: build
     runs-on: windows-latest
     env:
       DIST: ${{ needs.preset.outputs.dist_dir }}
