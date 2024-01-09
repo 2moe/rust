@@ -1,101 +1,120 @@
 name: build rust9x toolchain
 
 env:
-  STAGE: 1
-  PRE_RELEASE: true
-  TAG: rust9x-1.76-beta-v3
-  PREV_TAG: rust9x-1.76-beta-v2
-  TAR_FILE: rust9x.tar
+  COMPRESSION_LV: 5
+  COMPRESSION_ALGO: LZMA2
+  PACKED_FILE: rust9x.7z
   DIGEST_FILE: sha256sum.txt
-  CACHE_KEY: Windows-build
-  HOST: x86_64-pc-windows-msvc
+  BUILD_CACHE_KEY: Windows-build
+  DIST_CACHE_KEY: dist
 
 on:
   push:
-    paths:
-      - ".github/workflows/build-9x.yml"
-      # - config.rust9x.toml
+    tags:
+      - "*.*"
 jobs:
-  # build:
-  #   runs-on: windows-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         # repository: rust9x/rust
-  #         ref: rust9x
-  #         fetch-depth: 50
-  #         # submodules: true
+  build:
+    runs-on: windows-latest
+    outputs:
+      dist_dir: ${{ steps.get_dist_dir.outputs.dist }}
+      comparation: ${{ steps.get_dist_dir.outputs.comparation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # repository: rust9x/rust
+          ref: rust9x
+          fetch-depth: 50
+          # submodules: true
 
-  #     - name: restore build-cache
-  #       id: cache-restore
-  #       uses: actions/cache/restore@v3
-  #       with:
-  #         # fail-on-cache-miss: false
-  #         path: build
-  #         key: ${{ env.CACHE_KEY }}
+      - name: get dist dir
+        id: get_dist_dir
+        env:
+          # api: ${{ format('https://api.github.com/repos/rust9x/rust/releases') }}
+          api: ${{ format('https://api.github.com/repos/{0}/releases', github.repository) }}
+        run: |
+          Set-Location -Path ..
+          $dist = $(Get-Location)\dist
+          "dist=$dist" >> $GITHUB_OUTPUT
+          "DIST=$dist" >> ${{ env.GITHUB_ENV }}
 
-  #     - name: rm link
-  #       continue-on-error: true
-  #       run: |
-  #         Get-ChildItem
-  #         Remove-Item -Force .\build\host
-  #         Get-ChildItem build
+      - name: restore build-cache
+        id: cache-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: build
+          key: ${{ env.BUILD_CACHE_KEY }}
 
-  #     - name: build 9x
-  #       run: |
-  #         Copy-Item -Path config.rust9x.toml -Destination config.toml -Force
-  #         python x.py build --verbose --incremental library/std --stage ${{ env.STAGE }}
+      - name: list directory
+        continue-on-error: true
+        run: |
+          Get-ChildItem -Depth 1 -Path build
 
-  #     - name: delete old cache
-  #       if: ${{ steps.cache-restore.outputs.cache-hit }}
-  #       continue-on-error: true
-  #       uses: MyAlbum/purge-cache@v2
-  #       with:
-  #         debug: true
-  #         max-age: 60
+      - name: build 9x
+        run: |
+          Copy-Item -Path config.rust9x.toml -Destination config.toml -Force
+          python x.py install --verbose
 
-  #     - name: save build-cache
-  #       uses: actions/cache/save@v3
-  #       # if: always()
-  #       with:
-  #         path: build
-  #         key: ${{ env.CACHE_KEY }}
+      - name: list the dist directory
+        run: |
+          Get-ChildItem -Depth 1 -Path ${{ env.DIST }}
 
-  #     - name: ls
-  #       run: |
-  #         Get-ChildItem build\host\
-  #         Get-ChildItem build\host\stage${{ env.STAGE }}
+      - name: delete old cache
+        if: ${{ steps.cache-restore.outputs.cache-hit }}
+        continue-on-error: true
+        uses: MyAlbum/purge-cache@v2
+        with:
+          debug: true
+          max-age: 60
+
+      - name: save dist-cache
+        uses: actions/cache/save@v3
+        with:
+          path: ${{ env.DIST }}
+          key: ${{ env.DIST_CACHE_KEY }}
+
+      - name: save build-cache
+        uses: actions/cache/save@v3
+        with:
+          path: build
+          key: ${{ env.BUILD_CACHE_KEY }}
 
   pack:
-    # needs: build
+    needs: build
     runs-on: windows-latest
+    env:
+      DIST: ${{ needs.build.outputs.dist_dir }}
     steps:
       - name: restore cache
         uses: actions/cache/restore@v3
         with:
-          path: build
+          path: ${{ env.DIST }}
+          key: ${{ env.DIST_CACHE_KEY }}
           fail-on-cache-miss: true
-          key: ${{ env.CACHE_KEY }}
 
-      - name: ls
+      - name: get release information
+        id: get_info
         run: |
-          Get-ChildItem
-          Get-ChildItem build
-          Get-ChildItem "build\host\stage${{env.STAGE}}"
+          $release = curl.exe -L -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" ${{env.api}} | ConvertFrom-Json
+
+          [String] $prev_tag = $release[1].tag_name
+
+          if ($prev_tag.Trim().Length -eq 0) {
+              "comparation=''" >> $GITHUB_OUTPUT
+              exit
+          }
+
+          $tag = (${{ github.ref }} -split '/')[-1]
+
+          "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $GITHUB_OUTPUT
 
       - name: pack toolchain
-        # It's `\path\to\build\x86_64-pc-windows-msvc`, not `\path\to\build\host`
-        working-directory: ${{ format('{0}\build\{1}', github.workspace, env.HOST) }}
+        working-directory: ${{ env.DIST }}
         env:
-          stage_dir: ${{ format('stage{0}', env.STAGE) }}
+          packed: ${{ env.PACKED_FILE }}
           digest: ${{ env.DIGEST_FILE }}
-          new_dir: rust9x
-          packed: ${{ format('{0}.zst', env.TAR_FILE) }}
         run: |
-          Move-Item -Path ${{env.stage_dir}} -Destination ${{env.new_dir}}
-          # DO NOT USE `tar xxx | zstd yyy` in pwsh !!!
-          tar -cf ${{ env.TAR_FILE }} ${{env.new_dir}}
-          zstd -15 -v -T0 --long=31 --rm ${{ env.TAR_FILE }} -o ${{env.packed}}
+          Get-ChildItem -Depth 1
+          7z a -mmt -mx${{env.COMPRESSION_LV}} -m0=BCJ2 -m1=${{COMPRESSION_ALGO}} ${{packed}} rust9x
           sha256sum ${{env.packed}} > ${{env.digest}}
 
           foreach ($i in @("${{env.packed}}", "${{env.digest}}")) {
@@ -105,13 +124,15 @@ jobs:
       - name: release
         uses: softprops/action-gh-release@v1
         env:
-          url: ${{ format('https://github.com/rust9x/rust/compare/{0}...{1}', env.PREV_TAG, env.TAG) }}
+          installation_url: https://github.com/rust9x/rust/wiki#installation
+          comparation: ${{ steps.get_info.outputs.comparation }}
         with:
-          tag_name: ${{ env.TAG }}
-          prerelease: ${{ env.PRE_RELEASE }}
+          prerelease: ${{ contains(fromJSON('["alpha", "beta", "rc"]'), github.ref) }}
           files: |
-            ${{ env.TAR_FILE }}.zst
+            ${{ env.PACKED_FILE }}
             ${{ env.DIGEST_FILE }}
           append_body: true
           body: |
-            Full Changelog: ${{env.url}}
+            [Installation notes](${{env.installation_url}})
+
+            ${{env.comparation}}
