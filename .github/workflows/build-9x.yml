@@ -28,6 +28,7 @@ jobs:
           Write-Output var: $GITHUB_OUTPUT 
           Write-Output env: ${{ env.GITHUB_OUTPUT }}
           Write-Output pwsh-env: $env:GITHUB_OUTPUT
+          Get-Content $env:GITHUB_OUTPUT
           exit 1
 
   # build:
