@@ -7,7 +7,7 @@ env:
   COMPRESSION_ALGO: LZMA2
   DIGEST_FILE: sha256sum.txt
   BUILD_CACHE_KEY: Windows-build
-  DIST_CACHE_KEY: dist
+  DIST_CACHE_KEY: Windows-dist
 
 on:
   push:
@@ -15,92 +15,76 @@ on:
       - "*.*"
 
 jobs:
-  # preset:
-  #   runs-on: windows-latest
-  #   outputs:
-  #     dist_dir: ${{ steps.get_dist_dir.outputs.dist }}
-  #   steps:
-  #     - name: get dist dir
-  #       id: get_dist_dir
-  #       run: |
-  #         Set-Location -Path ..
-  #         "dist=$(Get-Location)\dist" >> $env:GITHUB_OUTPUT
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # repository: rust9x/rust
+          ref: rust9x
+          fetch-depth: 50
+          # submodules: true
 
-  # build:
-  #   runs-on: windows-latest
-  #   needs: preset
-  #   env:
-  #     DIST: ${{ needs.preset.outputs.dist_dir }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         # repository: rust9x/rust
-  #         ref: rust9x
-  #         fetch-depth: 50
-  #         # submodules: true
+      - name: restore build-cache
+        id: cache-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: build
+          key: ${{ env.BUILD_CACHE_KEY }}
 
-  #     - name: restore build-cache
-  #       id: cache-restore
-  #       uses: actions/cache/restore@v3
-  #       with:
-  #         path: build
-  #         key: ${{ env.BUILD_CACHE_KEY }}
+      # If you don't remove the host symlink, then there will be a panic when building rust.
+      # > panic message:
+      #     thread 'main' panicked at src/lib.rs:476:13:
+      #     fs::remove_dir(&host) failed with The directory name is invalid. (os error 267)
+      - name: remove link & list directory
+        continue-on-error: true
+        run: |
+          Remove-Item -Path build\host -Force
+          Get-ChildItem -Depth 1 -Path build
 
-  #     # If you don't remove the host symlink, then there will be a panic when building rust.
-  #     # > panic message:
-  #     #     thread 'main' panicked at src/lib.rs:476:13:
-  #     #     fs::remove_dir(&host) failed with The directory name is invalid. (os error 267)
-  #     - name: remove link & list directory
-  #       continue-on-error: true
-  #       run: |
-  #         Remove-Item -Path build\host -Force
-  #         Get-ChildItem -Depth 1 -Path build
+      - name: build 9x
+        run: |
+          Copy-Item -Path config.rust9x.toml -Destination config.toml -Force
+          python x.py install ${{ env.BUILD_ARGS }}
 
-  #     - name: build 9x
-  #       run: |
-  #         Copy-Item -Path config.rust9x.toml -Destination config.toml -Force
-  #         python x.py install ${{ env.BUILD_ARGS }}
+      - name: move & list the dist directory
+        run: |
+          if (Test-Path dist) {
+              Remove-Item -Recurse -Force -Path dist
+          }
+          Move-Item -Path ..\dist -Destination .
+          Get-ChildItem -Depth 2 -Path dist
 
-  #     - name: list the dist directory
-  #       run: |
-  #         Get-ChildItem -Depth 2 -Path ${{ env.DIST }}
+      - name: delete old cache
+        if: ${{ steps.cache-restore.outputs.cache-hit }}
+        continue-on-error: true
+        uses: MyAlbum/purge-cache@v2
+        with:
+          debug: true
+          max-age: 60
 
-  #     - name: delete old cache
-  #       if: ${{ steps.cache-restore.outputs.cache-hit }}
-  #       continue-on-error: true
-  #       uses: MyAlbum/purge-cache@v2
-  #       with:
-  #         debug: true
-  #         max-age: 60
+      - name: save dist-cache
+        uses: actions/cache/save@v3
+        continue-on-error: false
+        if: always()
+        with:
+          path: dist
+          key: ${{ env.DIST_CACHE_KEY }}
 
-  #     - name: save dist-cache
-  #       uses: actions/cache/save@v3
-  #       continue-on-error: false
-  #       if: always()
-  #       with:
-  #         path: ${{ env.DIST }}
-  #         key: ${{ env.DIST_CACHE_KEY }}
-
-  #     - name: save build-cache
-  #       uses: actions/cache/save@v3
-  #       with:
-  #         path: build
-  #         key: ${{ env.BUILD_CACHE_KEY }}
+      - name: save build-cache
+        uses: actions/cache/save@v3
+        with:
+          path: build
+          key: ${{ env.BUILD_CACHE_KEY }}
 
   pack:
-    # needs: [preset, build]
-    # needs: preset
-    # needs: build
+    needs: build
     runs-on: windows-latest
-    env:
-      # DIST: ${{ needs.preset.outputs.dist_dir }}
-      DIST: D:\a\rust\dist
     steps:
       - name: restore cache
         uses: actions/cache/restore@v3
-        continue-on-error: false
         with:
-          path: ${{ env.DIST }}
+          path: dist
           key: ${{ env.DIST_CACHE_KEY }}
           fail-on-cache-miss: true
 
@@ -124,9 +108,12 @@ jobs:
 
           "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $env:GITHUB_OUTPUT
 
+          $is_prerelease = ($tag -match "alpha|beta|rc").ToString().ToLower()
+          "prerelease=$is_prerelease" >> $env:GITHUB_OUTPUT
+
       # In the **dist** directory, package the **rust9x** folder in 7z format, compute its sha256 hash, and finally move the 7z and hash files to the `${{ github.workspace }}` directory.
       - name: pack toolchain
-        working-directory: ${{ env.DIST }}
+        working-directory: ${{ format('{0}\dist', github.workspace) }}
         env:
           packed: ${{ env.PACKED_FILE }}
           digest: ${{ env.DIGEST_FILE }}
@@ -148,7 +135,7 @@ jobs:
           installation_url: https://github.com/rust9x/rust/wiki#installation
           comparation: ${{ steps.get_info.outputs.comparation }}
         with:
-          prerelease: ${{ contains(fromJSON('["alpha", "beta", "rc"]'), github.ref) }}
+          prerelease: ${{ steps.get_info.outputs.prerelease }}
           files: |
             ${{ env.PACKED_FILE }}
             ${{ env.DIGEST_FILE }}
