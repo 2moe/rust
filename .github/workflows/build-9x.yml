@@ -33,7 +33,7 @@ jobs:
           path: build
           key: ${{ env.BUILD_CACHE_KEY }}
 
-      # If you don't remove the host symlinks, and you use build-cache with actions, then there is a panic when building rust.
+      # If you don't remove the host symlink, and you use build-cache with actions, then there is a panic when building rust.
       # > panic message:
       #     thread 'main' panicked at src/lib.rs:476:13:
       #     fs::remove_dir(&host) failed with The directory name is invalid. (os error 267)
