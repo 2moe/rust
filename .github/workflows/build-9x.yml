@@ -97,8 +97,10 @@ jobs:
     steps:
       - name: restore cache
         uses: actions/cache/restore@v3
+        continue-on-error: false
         with:
-          path: ${{ env.DIST }}
+          # path: ${{ env.DIST }}
+          path: .
           key: ${{ env.DIST_CACHE_KEY }}
           fail-on-cache-miss: true
 
@@ -114,13 +116,13 @@ jobs:
           [String] $prev_tag = $release[1].tag_name
 
           if ($prev_tag.Trim().Length -eq 0) {
-              "comparation=''" >> $GITHUB_OUTPUT
+              "comparation=''" >> $env:GITHUB_OUTPUT
               exit
           }
 
           $tag = ("${{ github.ref }}" -split '/')[-1]
 
-          "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $GITHUB_OUTPUT
+          "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $env:GITHUB_OUTPUT
 
       # In the **dist** directory, package the **rust9x** folder in 7z format, compute its sha256 hash, and finally move the 7z and hash files to the `${{ github.workspace }}` directory.
       - name: pack toolchain
