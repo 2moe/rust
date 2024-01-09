@@ -25,7 +25,8 @@ jobs:
         run: |
           Set-Location -Path ..
           "dist=$(Get-Location)\dist" >> $GITHUB_OUTPUT
-          Get-Content $GITHUB_OUTPUT
+          Write-Output var: $GITHUB_OUTPUT 
+          Write-Output env: ${{ env.GITHUB_OUTPUT }}
 
   # build:
   #   runs-on: windows-latest
