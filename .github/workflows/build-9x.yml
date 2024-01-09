@@ -108,7 +108,7 @@ jobs:
 
           $tag = ("${{ github.ref }}" -split '/')[-1]
 
-          "comparation='**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag'" >> $env:GITHUB_OUTPUT
+          "comparation=**Full Changelog**: https://github.com/${{github.repository}}/compare/$prev_tag...$tag" >> $env:GITHUB_OUTPUT
 
           $is_prerelease = ($tag -match "alpha|beta|rc").ToString().ToLower()
           "prerelease=$is_prerelease" >> $env:GITHUB_OUTPUT
